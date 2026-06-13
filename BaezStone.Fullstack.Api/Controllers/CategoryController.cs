@@ -1,6 +1,6 @@
 ﻿using BaezStone.Fullstack.Api.Data;
+using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,23 +17,33 @@ namespace BaezStone.Fullstack.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
-            => await _context.Categories.AsNoTracking().OrderBy(c => c.Nombre).ToListAsync();
+        [ProducesResponseType(StatusCodes.Status200OK)]        
+        public async Task<ActionResult<IEnumerable<CategoryReadDto>>> GetCategories()
+            => await _context.Categories
+                            .AsNoTracking()
+                            .OrderBy(c => c.Nombre)
+                            .Select(c => new CategoryReadDto { Id = c.Id, Nombre = c.Nombre})
+                            .ToListAsync();
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<Category>> GetCategory(int id)
+        [ProducesResponseType(StatusCodes.Status200OK)]        
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<CategoryReadDto>> GetCategory(int id)
         {
             var category = await _context.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
             if (category == null)
             {
                 return NotFound();
             }
-            return category;
+            return new CategoryReadDto { Id = category.Id , Nombre = category.Nombre };
         }
 
         [HttpPost]
-        public async Task<ActionResult<Category>> PostCategory(Category category)
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<CategoryReadDto>> PostCategory(CategoryCreateDto categoryDto)
         {
+            var category = new Category { Nombre = categoryDto.Nombre };
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);

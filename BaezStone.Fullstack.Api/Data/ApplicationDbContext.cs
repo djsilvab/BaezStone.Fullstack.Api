@@ -11,7 +11,7 @@ namespace BaezStone.Fullstack.Api.Data
             
         }
 
-        public DbSet<Category> Categories { get; set; }
-        public DbSet<Movie> Movies { get; set; }
+        public DbSet<Category> Categories { get; set; } = null!;
+        public DbSet<Movie> Movies { get; set; } = null!;
     }
 }
