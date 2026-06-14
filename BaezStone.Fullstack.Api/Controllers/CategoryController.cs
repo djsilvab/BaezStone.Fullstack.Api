@@ -17,36 +17,39 @@ namespace BaezStone.Fullstack.Api.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]        
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult<IEnumerable<CategoryReadDto>>> GetCategories()
             => await _context.Categories
                             .AsNoTracking()
                             .OrderBy(c => c.Nombre)
-                            .Select(c => new CategoryReadDto { Id = c.Id, Nombre = c.Nombre})
+                            .Select(c => new CategoryReadDto { Id = c.Id, Nombre = c.Nombre })
                             .ToListAsync();
 
         [HttpGet("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]        
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<CategoryReadDto>> GetCategory(int id)
         {
-            var category = await _context.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-            return new CategoryReadDto { Id = category.Id , Nombre = category.Nombre };
+            var category = await _context.Categories
+                                         .AsNoTracking()
+                                         .Select(c => new CategoryReadDto {  Id = c.Id, Nombre = c.Nombre})
+                                         .FirstOrDefaultAsync(c => c.Id == id);
+            
+            return category is null ? NotFound() : category;
         }
 
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CategoryReadDto>> PostCategory(CategoryCreateDto categoryDto)
         {
             var category = new Category { Nombre = categoryDto.Nombre };
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);
+
+            var readDto = new CategoryReadDto { Id = category.Id, Nombre = category.Nombre };
+            return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, readDto);
         }
     }
 }
