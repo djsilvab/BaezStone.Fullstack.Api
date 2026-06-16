@@ -1,8 +1,10 @@
-﻿using BaezStone.Fullstack.Api.Data;
+﻿using AutoMapper;
+using BaezStone.Fullstack.Api.Data;
 using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using AutoMapper.QueryableExtensions;
 
 namespace BaezStone.Fullstack.Api.Controllers
 {
@@ -11,44 +13,48 @@ namespace BaezStone.Fullstack.Api.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        public CategoryController(ApplicationDbContext context)
+        private readonly IMapper _mapper;
+    
+        public CategoryController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(IEnumerable<CategoryReadDto>), StatusCodes.Status200OK)]
         public async Task<ActionResult<IEnumerable<CategoryReadDto>>> GetCategories()
-            => await _context.Categories
+            => Ok(await _context.Categories
                             .AsNoTracking()
                             .OrderBy(c => c.Nombre)
-                            .Select(c => new CategoryReadDto { Id = c.Id, Nombre = c.Nombre })
-                            .ToListAsync();
+                            .ProjectTo<CategoryReadDto>(_mapper.ConfigurationProvider)
+                            .ToListAsync());
 
         [HttpGet("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(CategoryReadDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<CategoryReadDto>> GetCategory(int id)
         {
             var category = await _context.Categories
                                          .AsNoTracking()
-                                         .Select(c => new CategoryReadDto {  Id = c.Id, Nombre = c.Nombre})
+                                         .ProjectTo<CategoryReadDto>(_mapper.ConfigurationProvider)                                         
                                          .FirstOrDefaultAsync(c => c.Id == id);
             
-            return category is null ? NotFound() : category;
+            return category is null ? NotFound() : Ok(category);
         }
 
         [HttpPost]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(CategoryReadDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CategoryReadDto>> PostCategory(CategoryCreateDto categoryDto)
         {
-            var category = new Category { Nombre = categoryDto.Nombre };
+            var category = _mapper.Map<Category>(categoryDto);
+
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
 
-            var readDto = new CategoryReadDto { Id = category.Id, Nombre = category.Nombre };
+            var readDto = _mapper.Map<CategoryReadDto>(category);
             return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, readDto);
         }
     }
