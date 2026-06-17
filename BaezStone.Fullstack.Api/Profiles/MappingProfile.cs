@@ -10,6 +10,9 @@ namespace BaezStone.Fullstack.Api.Profiles
         {
             CreateMap<Category, CategoryReadDto>();
             CreateMap<CategoryCreateDto, Category>();
+
+            CreateMap<Movie, MovieReadDto>();
+            CreateMap<MovieCreateDto, Movie>();
         }
     }
 }
