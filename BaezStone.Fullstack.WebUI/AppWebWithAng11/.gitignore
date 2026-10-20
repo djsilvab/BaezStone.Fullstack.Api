@@ -1,0 +1,18 @@
+# .gitignore estándar de Angular CLI, ubicado en la raíz de la app: las rutas
+# con "/" son relativas a esta carpeta, no a la raíz del repo.
+
+# compiled output
+/dist
+/tmp
+/out-tsc
+/bazel-out
+
+# miscellaneous
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings

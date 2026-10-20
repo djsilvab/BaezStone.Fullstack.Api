@@ -1,0 +1,10 @@
+<h2> lista de películas</h2>
+<img src="https://media.tenor.com/eFde1mp-8fYAAAAM/carregando.gif" *ngIf="peliculas.length === 0" />
+<div *ngFor="let pelicula of peliculas" class="pelicula-container">
+    <div>
+        <p>Pelicula: {{pelicula.titulo | uppercase}}</p>
+        <p>Director: {{pelicula.director}}</p>
+        <p>Fecha: {{pelicula.fecha | date: "dd-MM-yyyy"}}</p>
+        <p>Precio: {{pelicula.precio | currency: "PEN " }}</p>
+    </div>
+</div>

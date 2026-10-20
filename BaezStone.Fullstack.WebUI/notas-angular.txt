@@ -1,0 +1,24 @@
+0) cd BaezStone.Fullstack.WebUI
+1) pnpm env use --global 14.21.3
+2) pnpm dlx @angular/cli@11.2.19 new AppWebWithAng11 --package-manager=pnpm
+3) Strict mode? No
+   Routing? Sí o No
+   SCSS
+4) cd AppWebWithAng11
+5) echo use-node-version=14.21.3 > .npmrc
+6) pnpm install
+7) pnpm approve-builds
+8) @angular/cli
+   core-js
+9) pnpm exec ng versión
+10) {
+  "engines": {
+    "node": "14.21.3"
+  }
+}
+11) mv ../.npmrc ./
+12) pnpm exec ng serve
+
+https://media.tenor.com/eFde1mp-8fYAAAAM/carregando.gif
+
+13) pnpm exec ng g c peliculas/lista-peliculas --skip-tests=true
