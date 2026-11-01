@@ -22,3 +22,5 @@
 https://media.tenor.com/eFde1mp-8fYAAAAM/carregando.gif
 
 13) pnpm exec ng g c peliculas/lista-peliculas --skip-tests=true
+14) pnpm exec ng serve
+15) pnpm exec ng add @angular/material

@@ -2,7 +2,7 @@
   "name": "app-web-with-ang11",
   "version": "0.0.0",
   "useNodeVersion": "14.21.3",
-   "engines": {
+  "engines": {
     "node": "14.21.3"
   },
   "scripts": {
@@ -16,10 +16,12 @@
   "private": true,
   "dependencies": {
     "@angular/animations": "~11.2.14",
+    "@angular/cdk": "11.2.13",
     "@angular/common": "~11.2.14",
     "@angular/compiler": "~11.2.14",
     "@angular/core": "~11.2.14",
     "@angular/forms": "~11.2.14",
+    "@angular/material": "11.2.13",
     "@angular/platform-browser": "~11.2.14",
     "@angular/platform-browser-dynamic": "~11.2.14",
     "@angular/router": "~11.2.14",
@@ -31,6 +33,7 @@
     "@angular-devkit/build-angular": "~0.1102.18",
     "@angular/cli": "~11.2.19",
     "@angular/compiler-cli": "~11.2.14",
+    "@angular/language-service": "11.2.14",
     "@types/jasmine": "~3.6.0",
     "@types/node": "^12.11.1",
     "codelyzer": "^6.0.0",
@@ -45,5 +48,5 @@
     "ts-node": "~8.3.0",
     "tslint": "~6.1.0",
     "typescript": "~4.1.5"
-  } 
+  }
 }

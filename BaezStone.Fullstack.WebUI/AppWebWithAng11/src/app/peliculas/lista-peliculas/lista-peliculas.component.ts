@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 
 @Component({
   selector: 'app-lista-peliculas',
@@ -6,36 +6,43 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./lista-peliculas.component.scss']
 })
 export class ListaPeliculasComponent implements OnInit {
+
+  @Input()
   peliculas: Array<any> = [];
 
   constructor() {
   }
 
   ngOnInit(): void {
-    setTimeout(() => {
 
-      this.peliculas = [
-        {
-          titulo: 'El Padrino',
-          director: 'Francis Ford Coppola',
-          fecha: new Date("03-24-1972"),
-          precio: 14.99
-        },
-        {
-          titulo: 'El Padrino II',
-          director: 'Francis Ford Coppola',
-          fecha: new Date("12-20-1974"),
-          precio: 14.99
-        },
-        {
-          titulo: 'El Padrino III',
-          director: 'Francis Ford Coppola',
-          fecha: new Date("12-25-1990"),
-          precio: 14.99
-        }
-      ]
-    }, 2500);
+    // setTimeout(() => {
 
+    //   this.peliculas = [
+    //     {
+    //       titulo: 'El Padrino',
+    //       director: 'Francis Ford Coppola',
+    //       fecha: new Date("03-24-1972"),
+    //       precio: 14.99
+    //     },
+    //     {
+    //       titulo: 'El Padrino II',
+    //       director: 'Francis Ford Coppola',
+    //       fecha: new Date("12-20-1974"),
+    //       precio: 14.99
+    //     },
+    //     {
+    //       titulo: 'El Padrino III',
+    //       director: 'Francis Ford Coppola',
+    //       fecha: new Date("12-25-1990"),
+    //       precio: 14.99
+    //     }
+    //   ]
+    // }, 2500);
+
+  }
+
+  remover(index: number): void {
+    this.peliculas.splice(index, 1);
   }
 
 }
