@@ -14,4 +14,6 @@ public class Cliente
     public string Direccion { get; set; } = default!;
     [Required]
     public string Telefono { get; set; } = default!;
+    public DateTime FechaCreacion { get; set; }
+    public DateTime? FechaActualizacion { get; set; }
 }

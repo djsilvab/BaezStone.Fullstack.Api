@@ -4,31 +4,42 @@ Dos apps independientes, un solo repo. Lee la sección de la app que vas a tocar
 
 | App | Ruta | Stack | ¿En `BaezStone.Fullstack.slnx`? |
 |---|---|---|---|
-| API | `BaezStone.Fullstack.Api/` | .NET 6 Web API, EF Core 6.0.36, AutoMapper 12, Swashbuckle | **Sí** (único proyecto) |
-| Frontend | `BaezStone.Fullstack.WebUI/AppWebWithAng11/` | Angular 11.2.19, TypeScript 4.1.6, TSLint, pnpm | No |
+| API | `BaezStone.Fullstack.Api/` | .NET 6 Web API, EF Core 6.0.36, AutoMapper 12 (+ `Extensions.Microsoft.DependencyInjection` 12), Swashbuckle | **Sí** (único proyecto) |
+| Frontend | `BaezStone.Fullstack.WebUI/AppWebWithAng11/` | Angular 11.2.19, TypeScript 4.1.6, Angular Material 11.2.13, TSLint, pnpm | **Sí** |
 
-- Todo el árbol `BaezStone.Fullstack.WebUI/` está **sin versionar en git** — confírmalo explícitamente, no asumas que está versionado.
+- El árbol `BaezStone.Fullstack.WebUI/` **sí está versionado en git** (42 archivos, commit `44055e4`). Los artefactos de build (`node_modules/`, `dist/`, `out-tsc/`) están ignorados; no asumas que hay carpetas sin versionar.
 - `.github/workflows/` está **vacío**: no hay CI ni puertas de calidad en PR. Toda la verificación es local.
 - No existe proyecto de tests para la API (ni xUnit ni NUnit). No inventes uno por tu cuenta.
 
 ## API — `BaezStone.Fullstack.Api/`
 
 ### Estructura y convenciones
-- `Models/` (entidades EF) → `Dtos/` (DTOs separados de creación `*CreateDto` / lectura `*ReadDto`) → `Profiles/MappingProfile.cs` (AutoMapper) → `Controllers/`.
+- `Models/` (entidades EF) → `Dtos/` (DTOs separados de creación `*CreateDto` / lectura `*ReadDto`) → `Profiles/MappingProfile.cs` (AutoMapper) → `Controllers/`. Existe además `Repositorio/` (interfaz + implementación), usado solo por la feature `Cliente` (ver abajo).
 - AutoMapper se registra una sola vez en `Program.cs` con `AddAutoMapper(typeof(Program).Assembly)`; **todos los mapas nuevos van en `Profiles/MappingProfile.cs`**.
 - Las lecturas usan `AsNoTracking().ProjectTo<T>(_mapper.ConfigurationProvider)`. Los POSTs mapean entidad→DTO de lectura a mano tras `SaveChangesAsync`.
 - `MovieReadDto.CategoryNombre` **no** se mapea explícitamente — la convención de aplanado (flattening) de AutoMapper lo obtiene de `Movie.Category.Nombre`. Un campo aplanado nuevo en el DTO debe provenir de una propiedad de navegación, no de un escalar en `Movie`.
 - `Movie.Category` es `[JsonIgnore]` + `[ValidateNever]`; se carga a mano después del guardado (`Controllers/MovieController.cs:55`).
 - `Category.Estado` existe en la entidad pero **no** está en `CategoryCreateDto`/`CategoryReadDto` — la API nunca lo expone.
-- Las rutas son `api/[controller]` → `api/category`, `api/movie`. **Solo GET/POST** — no hay Update/Delete para ninguno de los dos recursos.
+- Las rutas son `api/[controller]` → `api/category`, `api/movie`, `api/clientes`. `Category` y `Movie` tienen **solo GET/POST**; `api/clientes` **solo GET**. No hay Update/Delete en ningún recurso.
 - `Middleware/ErrorHandlingMiddleware.cs` se registra primero en el pipeline y convierte cualquier excepción no controlada en un 500 con `application/problem+json`. En Development el campo `Detail` contiene el stack completo de la excepción. No añadas try/catch a nivel de controlador.
 - Se llama a `app.UseAuthorization()` pero **no hay registrado ningún esquema de autenticación** — la API es totalmente anónima.
 - **No hay ninguna política de CORS configurada.** Una app de navegador en otro origen no puede llamar a esta API hasta que se añada una (ver checklist de integración).
 - `app.UseHttpsRedirection()` está activo; `dotnet run` usa el perfil de `Properties/launchSettings.json` → `https://localhost:7276` / `http://localhost:5082`, Swagger en `/swagger`.
 
+### Feature `Cliente` (WIP, sin commitear)
+- `Models/Cliente.cs` (Id, Nombres, Apellidos, Direccion, Telefono; `[Required]` + `default!`), registrado como `DbSet<Cliente> Clientes` en `Data/ApplicationDbContext.cs:16`.
+- `Dtos/ClienteDto.cs` es un **único** DTO para lectura y escritura, y **rompe** la convención `*CreateDto`/`*ReadDto`: incluye `Id`, no tiene anotaciones de validación y usa `= default!`.
+- `Dtos/ResponseDto.cs` es un sobre de respuesta (`IsSuccess`, `Result`, `DisplayMessage`, `ErrorMessages`) que **nadie usa** y que genera avisos de nulabilidad (CS8618) con `Nullable enable`.
+- `Repositorio/IClienteRepositorio.cs` + `Repositorio/ClienteRepositorio.cs`: **no está registrado en DI** (`Program.cs` no tiene `AddScoped`) y **todos sus métodos lanzan `NotImplementedException`**.
+- `Controllers/ClientesController.cs` → ruta `api/clientes`. Solo `GET` (lista y por id) y devuelve **entidades `Cliente` directamente**, sin DTOs ni AutoMapper.
+- La migración `20261101053603_AgregarCliente` crea la tabla `Clientes`; su `.Designer.cs` y el snapshot están sin commitear.
+
 ### EF Core y base de datos
-- SQL Server LocalDB, base de datos `PeliculasDB`, cadena de conexión `DefaultConnection` en `appsettings.json` (`Trusted_Connection=True`).
-- Las migraciones viven en `BaezStone.Fullstack.Api/Migrations/` (nombres en kebab-case, p. ej. `20260610052233_add-movie.cs`). Las 5 migraciones existentes ya están aplicadas en la BD local.
+- Hay **dos** cadenas de conexión en `appsettings.json`:
+  - `DefaultConnection` → LocalDB `PeliculasDB` (`Server=(localdb)\mssqllocaldb;Trusted_Connection=True`).
+  - `ClienteConnection` → `Server=localhost;Database=ClienteDB` (SQL Server local, **no** LocalDB).
+- `Program.cs:9` registra el `DbContext` con **`ClienteConnection`**, no con `DefaultConnection`; la API actual apunta a `ClienteDB`.
+- Las migraciones viven en `BaezStone.Fullstack.Api/Migrations/` (nombres en kebab-case salvo `AgregarCliente`, p. ej. `20260610052233_add-movie.cs`). Hay **6 migraciones**; la más reciente es `20261101053603_AgregarCliente` y está sin commitear.
 - **La herramienta global `dotnet-ef` instalada en esta máquina es la v10.0.9 y revienta contra este proyecto net6.0/EF6** (`FileLoadException: Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`). Usa una herramienta 6.x:
   ```bash
   dotnet tool install --global dotnet-ef --version 6.0.36
@@ -70,8 +81,10 @@ pnpm exec ng serve                                          # dev server en http
 
 ### Convenciones
 - SCSS, prefijo de componente `app-`, nombres de archivo en kebab-case, carpeta por funcionalidad.
+- `AppModule` declara `AppComponent`, `ListaPeliculasComponent` y `MenuComponent`, e importa `BrowserAnimationsModule` y `MaterialModule` (`src/app/material/material.module.ts`, Angular Material 11.2.13 + CDK).
+- `app.component.html` renderiza `<app-menu>` y `<app-lista-peliculas [peliculas]="peliculasEpoca80">`; ningún componente está enrutado.
 - TSLint exige: **comillas simples**, punto y coma obligatorio, línea de 140 caracteres como máximo, sangría de 2 espacios, sin espacios al final.
-- `src/app/app-routing.module.ts` tiene un **array `routes` vacío** — `ListaPeliculasComponent` se declara en `AppModule` y se usa directamente en `app.component.html`, no está enrutada.
+- `src/app/app-routing.module.ts` tiene un **array `routes` vacío**; no hay navegación entre componentes.
 - `ListaPeliculasComponent` sirve **datos mock hardcodeados** desde un `setTimeout(..., 2500)` — no está conectada a la API.
 
 ### Checklist de integración (frontend ↔ API)
@@ -82,5 +95,6 @@ Todavía no hay nada conectado. Para llamar a la API desde el navegador necesita
 4. En la API está activo `UseHttpsRedirection()`: llama a la URL **https**, o enruta el dev server a través de un `proxy.conf.json` de Angular y asume que la redirección romperá el proxy — decide esto a propósito.
 5. `Environment` todavía no tiene la clave `apiUrl`; añádela en los dos archivos de environment y mantenlos sincronizados mediante la entrada `fileReplacements` de `angular.json`.
 
-## Trampa de Git
-Las reglas de Angular añadidas al `.gitignore` están **ancladas a la raíz** (`/dist`, `/out-tsc`), así que **no** ignoran `BaezStone.Fullstack.WebUI/AppWebWithAng11/dist/` ni `.../out-tsc/` — la salida de build está sin versionar pero visible, y se acabaría committeando. `node_modules/` sí lo ignora el `.gitignore` base (línea ~294).
+## Git
+- El árbol `BaezStone.Fullstack.WebUI/` **sí está versionado** (42 archivos). El `.gitignore` anidado de Angular (`AppWebWithAng11/.gitignore:5,7`) ignora `/dist` y `/out-tsc`, y el `.gitignore` raíz (`:294`) ignora `node_modules/`; los tres quedan fuera de git. La antigua "trampa" de reglas ancladas a la raíz ya no aplica.
+- **Trabajo en curso sin commitear** (confirma con `git status` antes de tocar): `Controllers/ClientesController.cs`, `Dtos/ClienteDto.cs`, `Dtos/ResponseDto.cs`, `Repositorio/`, `Migrations/20261101053603_AgregarCliente*` y `ApplicationDbContextModelSnapshot.cs` modificado.

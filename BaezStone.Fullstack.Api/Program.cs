@@ -1,5 +1,7 @@
+using AutoMapper;
 using BaezStone.Fullstack.Api.Data;
 using BaezStone.Fullstack.Api.Middleware;
+using BaezStone.Fullstack.Api.Repositorio;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,12 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("ClienteConnection")));
 
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
+builder.Services.AddScoped<IClienteRepositorio, ClienteRepositorio>();
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 var app = builder.Build();
 

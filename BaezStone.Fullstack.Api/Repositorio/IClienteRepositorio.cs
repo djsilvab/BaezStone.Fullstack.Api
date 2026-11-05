@@ -4,9 +4,9 @@ namespace BaezStone.Fullstack.Api.Repositorio;
 
 public interface IClienteRepositorio
 {
-    Task<List<ClienteDto>> GetClientes();
-    Task<ClienteDto> GetClienteById(int id);
-    Task<ClienteDto> CreateUpdateCliente(ClienteDto clienteDto);
+    Task<List<ClienteReadDto>> GetClientes();
+    Task<ClienteReadDto?> GetClienteById(int id);
+    Task<ClienteReadDto?> CreateUpdateCliente(ClienteCreateDto clienteDto);
     Task<bool> DeleteCliente(int id);
 
 }
