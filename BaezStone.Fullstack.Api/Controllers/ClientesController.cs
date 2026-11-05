@@ -1,5 +1,4 @@
 ﻿using BaezStone.Fullstack.Api.Dtos;
-using BaezStone.Fullstack.Api.Models;
 using BaezStone.Fullstack.Api.Repositorio;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,7 +18,7 @@ public class ClientesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Cliente>>> GetClientes()
+    public async Task<ActionResult<IEnumerable<ResponseDto>>> GetClientes()
     {
         try
         {
@@ -38,7 +37,7 @@ public class ClientesController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Cliente>> GetCliente(int id)
+    public async Task<ActionResult<ResponseDto>> GetCliente(int id)
     {
         var cliente = await _clienteRepositorio.GetClienteById(id);
 
@@ -57,21 +56,12 @@ public class ClientesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ClienteReadDto>> PostCliente([FromBody] ClienteCreateDto clienteDto)
     {
-        try
-        {
-            var model = await _clienteRepositorio.CreateUpdateCliente(clienteDto);
-            _response.Result = model;
-            _response.DisplayMessage = "Cliente creado correctamente";
+        var model = await _clienteRepositorio.CreateUpdateCliente(clienteDto);
+        _response.Result = model;
+        _response.DisplayMessage = "Cliente creado correctamente";
 
-            return CreatedAtAction("GetCliente", new { id = model.Id }, _response);
-        }
-        catch (Exception ex)
-        {
-            _response.IsSuccess = false;
-            _response.ErrorMessages = new List<string> { ex.ToString() };
-            _response.DisplayMessage = "Error al crear el cliente";
-            return BadRequest(_response);
-        }
+        return CreatedAtAction(nameof(GetCliente), new { id = model.Id }, _response);
+
     }
 
     [HttpPut("{id}")]
@@ -84,26 +74,17 @@ public class ClientesController : ControllerBase
             return BadRequest(_response);
         }
 
-        try
-        {
-            var updatedCliente = await _clienteRepositorio.CreateUpdateCliente(clienteDto);
-            if (updatedCliente is null)
-            {
-                _response.IsSuccess = false;
-                _response.DisplayMessage = "Cliente no encontrado";
-                return NotFound(_response);
-            }
-
-            _response.Result = updatedCliente;
-            _response.DisplayMessage = "Cliente actualizado correctamente";
-        }
-        catch (Exception ex)
+        var updatedCliente = await _clienteRepositorio.CreateUpdateCliente(clienteDto);
+        if (updatedCliente is null)
         {
             _response.IsSuccess = false;
-            _response.DisplayMessage = "Error al actualizar el cliente";
-            _response.ErrorMessages = new List<string> { ex.ToString() };
-            return BadRequest(_response);
+            _response.DisplayMessage = "Cliente no encontrado";
+            return NotFound(_response);
         }
+
+        _response.Result = updatedCliente;
+        _response.DisplayMessage = "Cliente actualizado correctamente";
+
 
         return Ok(_response);
     }
@@ -111,26 +92,17 @@ public class ClientesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCliente(int id)
     {
-        try
-        {
-            var isSuccess = await _clienteRepositorio.DeleteCliente(id);
-            if (!isSuccess)
-            {
-                _response.IsSuccess = false;
-                _response.DisplayMessage = "Cliente no eliminado";
-                return BadRequest(_response);
-            }
-
-            _response.Result = isSuccess;
-            _response.DisplayMessage = "Cliente eliminado correctamente";
-            return Ok(_response);
-        }
-        catch (Exception ex)
+        var isSuccess = await _clienteRepositorio.DeleteCliente(id);
+        if (!isSuccess)
         {
             _response.IsSuccess = false;
-            _response.DisplayMessage = "Error al eliminar el cliente";
-            _response.ErrorMessages = new List<string> { ex.ToString() };
-            return BadRequest(_response);
+            _response.DisplayMessage = "Cliente no eliminado";
+            return NotFound(_response);
         }
+
+        _response.Result = isSuccess;
+        _response.DisplayMessage = "Cliente eliminado correctamente";
+        return Ok(_response);
+
     }
 }

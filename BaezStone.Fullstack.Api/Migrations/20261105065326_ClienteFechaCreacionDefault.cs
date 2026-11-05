@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -16,7 +15,8 @@ namespace BaezStone.Fullstack.Api.Migrations
                 nullable: false,
                 defaultValueSql: "SYSUTCDATETIME()",
                 oldClrType: typeof(DateTime),
-                oldType: "datetime2");
+                oldType: "datetime2",
+                oldDefaultValue: new DateTime(1, 1, 1));
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -26,6 +26,7 @@ namespace BaezStone.Fullstack.Api.Migrations
                 table: "Clientes",
                 type: "datetime2",
                 nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                 oldClrType: typeof(DateTime),
                 oldType: "datetime2",
                 oldDefaultValueSql: "SYSUTCDATETIME()");

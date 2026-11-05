@@ -1,27 +1,25 @@
 ﻿using BaezStone.Fullstack.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace BaezStone.Fullstack.Api.Data
+namespace BaezStone.Fullstack.Api.Data;
+public class ApplicationDbContext : DbContext
 {
-    public class ApplicationDbContext : DbContext
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        : base(options)
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
-            
-        }
 
-        public DbSet<Category> Categories { get; set; } = null!;
-        public DbSet<Movie> Movies { get; set; } = null!;
-        public DbSet<Cliente> Clientes { get; set; } = null!;
+    }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
+    public DbSet<Category> Categories { get; set; } = null!;
+    public DbSet<Movie> Movies { get; set; } = null!;
+    public DbSet<Cliente> Clientes { get; set; } = null!;
 
-            modelBuilder.Entity<Cliente>()
-                                .Property(c => c.FechaCreacion)
-                                .HasDefaultValueSql("SYSUTCDATETIME()");
-        }
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Cliente>()
+                    .Property(c => c.FechaCreacion)
+                    .HasDefaultValueSql("SYSUTCDATETIME()");
     }
 }

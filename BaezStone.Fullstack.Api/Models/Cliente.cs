@@ -6,13 +6,13 @@ public class Cliente
 {
     [Key]
     public int Id { get; set; }
-    [Required]
+    [Required, MaxLength(100)]
     public string Nombres { get; set; } = default!;
-    [Required]
+    [Required, MaxLength(100)]
     public string Apellidos { get; set; } = default!;
-    [Required]
+    [Required, MaxLength(200)]
     public string Direccion { get; set; } = default!;
-    [Required]
+    [Required, MaxLength(20)]
     public string Telefono { get; set; } = default!;
     public DateTime FechaCreacion { get; set; }
     public DateTime? FechaActualizacion { get; set; }
