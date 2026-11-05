@@ -16,30 +16,30 @@ Dos apps independientes, un solo repo. Lee la sección de la app que vas a tocar
 ### Estructura y convenciones
 - `Models/` (entidades EF) → `Dtos/` (DTOs separados de creación `*CreateDto` / lectura `*ReadDto`) → `Profiles/MappingProfile.cs` (AutoMapper) → `Controllers/`. Existe además `Repositorio/` (interfaz + implementación), usado solo por la feature `Cliente` (ver abajo).
 - AutoMapper se registra una sola vez en `Program.cs` con `AddAutoMapper(typeof(Program).Assembly)`; **todos los mapas nuevos van en `Profiles/MappingProfile.cs`**.
-- Las lecturas usan `AsNoTracking().ProjectTo<T>(_mapper.ConfigurationProvider)`. Los POSTs mapean entidad→DTO de lectura a mano tras `SaveChangesAsync`.
+- Las lecturas usan `AsNoTracking().ProjectTo<T>(_mapper.ConfigurationProvider)`. `Movie`/`Category` mapean entidad→DTO de lectura a mano tras `SaveChangesAsync`; `ClienteRepositorio` usa `_mapper.Map<ClienteReadDto>`.
 - `MovieReadDto.CategoryNombre` **no** se mapea explícitamente — la convención de aplanado (flattening) de AutoMapper lo obtiene de `Movie.Category.Nombre`. Un campo aplanado nuevo en el DTO debe provenir de una propiedad de navegación, no de un escalar en `Movie`.
 - `Movie.Category` es `[JsonIgnore]` + `[ValidateNever]`; se carga a mano después del guardado (`Controllers/MovieController.cs:55`).
 - `Category.Estado` existe en la entidad pero **no** está en `CategoryCreateDto`/`CategoryReadDto` — la API nunca lo expone.
-- Las rutas son `api/[controller]` → `api/category`, `api/movie`, `api/clientes`. `Category` y `Movie` tienen **solo GET/POST**; `api/clientes` **solo GET**. No hay Update/Delete en ningún recurso.
-- `Middleware/ErrorHandlingMiddleware.cs` se registra primero en el pipeline y convierte cualquier excepción no controlada en un 500 con `application/problem+json`. En Development el campo `Detail` contiene el stack completo de la excepción. No añadas try/catch a nivel de controlador.
+- Las rutas son `api/[controller]` → `api/category`, `api/movie`, `api/clientes`. `Category` y `Movie` tienen **solo GET/POST**; `api/clientes` tiene **GET (lista/por id), POST, PUT y DELETE**.
+- `Middleware/ErrorHandlingMiddleware.cs` se registra primero en el pipeline y convierte cualquier excepción no controlada en un 500 con `application/problem+json`. En Development el campo `Detail` contiene el stack completo de la excepción. No añadas try/catch a nivel de controlador. Excepción conocida: `ClientesController.GetClientes` aún conserva `try/catch` + `ex.ToString()` (deuda pendiente).
 - Se llama a `app.UseAuthorization()` pero **no hay registrado ningún esquema de autenticación** — la API es totalmente anónima.
 - **No hay ninguna política de CORS configurada.** Una app de navegador en otro origen no puede llamar a esta API hasta que se añada una (ver checklist de integración).
 - `app.UseHttpsRedirection()` está activo; `dotnet run` usa el perfil de `Properties/launchSettings.json` → `https://localhost:7276` / `http://localhost:5082`, Swagger en `/swagger`.
 
-### Feature `Cliente` (WIP, sin commitear)
-- `Models/Cliente.cs` (Id, Nombres, Apellidos, Direccion, Telefono; `[Required]` + `default!`), registrado como `DbSet<Cliente> Clientes` en `Data/ApplicationDbContext.cs:16`.
-- `Dtos/ClienteDto.cs` es un **único** DTO para lectura y escritura, y **rompe** la convención `*CreateDto`/`*ReadDto`: incluye `Id`, no tiene anotaciones de validación y usa `= default!`.
-- `Dtos/ResponseDto.cs` es un sobre de respuesta (`IsSuccess`, `Result`, `DisplayMessage`, `ErrorMessages`) que **nadie usa** y que genera avisos de nulabilidad (CS8618) con `Nullable enable`.
-- `Repositorio/IClienteRepositorio.cs` + `Repositorio/ClienteRepositorio.cs`: **no está registrado en DI** (`Program.cs` no tiene `AddScoped`) y **todos sus métodos lanzan `NotImplementedException`**.
-- `Controllers/ClientesController.cs` → ruta `api/clientes`. Solo `GET` (lista y por id) y devuelve **entidades `Cliente` directamente**, sin DTOs ni AutoMapper.
-- La migración `20261101053603_AgregarCliente` crea la tabla `Clientes`; su `.Designer.cs` y el snapshot están sin commitear.
+### Feature `Cliente`
+- `Models/Cliente.cs` (Id, Nombres, Apellidos, Direccion, Telefono; `[Key]`, `[Required, MaxLength(100/100/200/20)]`, `= default!`) más `FechaCreacion` (no null, default de BD `SYSUTCDATETIME()`) y `FechaActualizacion` (nullable); registrado como `DbSet<Cliente> Clientes` en `Data/ApplicationDbContext.cs:16`.
+- `Dtos/ClienteCreateDto.cs` **incluye `Id`**: el repositorio crea cuando `Id == 0` y actualiza cuando no; tiene `[Required, MaxLength]`. `Dtos/ClienteReadDto.cs` expone `NombreCompleto`, calculado en `Profiles/MappingProfile.cs` concatenando `Nombres` + `Apellidos`.
+- `Dtos/ResponseDto.cs` es el sobre de respuesta (`IsSuccess`, `Result`, `DisplayMessage`, `ErrorMessages`) que usa `ClientesController`; ya no genera CS8618 (`object?`, `string.Empty`, `new()`).
+- `Repositorio/IClienteRepositorio.cs` + `Repositorio/ClienteRepositorio.cs`: implementados (lecturas con `AsNoTracking().ProjectTo<>`, CRUD, timestamps UTC asignados en el repositorio) y registrados con `AddScoped<IClienteRepositorio, ClienteRepositorio>` (`Program.cs:14`).
+- `Controllers/ClientesController.cs` → ruta `api/clientes`. GET (lista y por id), POST, PUT y DELETE, con DTOs, `IClienteRepositorio`, AutoMapper y respuestas envueltas en `ResponseDto`. Deuda pendiente: `GetClientes` conserva `try/catch` con `ex.ToString()` y `PostCliente` puede generar CS8602 al usar `model.Id` (el DTO es nullable).
+- Migraciones de `Cliente`: `20261101053603_AgregarCliente` (tabla `Clientes`), `20261105060429_UpdCliente-FechaCreacionAct` (añade `FechaActualizacion`), `20261105065326_ClienteFechaCreacionDefault` (default `SYSUTCDATETIME()`) y `20261105220604_ClienteMaxLength` (longitudes `nvarchar`).
 
 ### EF Core y base de datos
 - Hay **dos** cadenas de conexión en `appsettings.json`:
   - `DefaultConnection` → LocalDB `PeliculasDB` (`Server=(localdb)\mssqllocaldb;Trusted_Connection=True`).
   - `ClienteConnection` → `Server=localhost;Database=ClienteDB` (SQL Server local, **no** LocalDB).
-- `Program.cs:9` registra el `DbContext` con **`ClienteConnection`**, no con `DefaultConnection`; la API actual apunta a `ClienteDB`.
-- Las migraciones viven en `BaezStone.Fullstack.Api/Migrations/` (nombres en kebab-case salvo `AgregarCliente`, p. ej. `20260610052233_add-movie.cs`). Hay **6 migraciones**; la más reciente es `20261101053603_AgregarCliente` y está sin commitear.
+- `Program.cs:11` registra el `DbContext` con **`ClienteConnection`**, no con `DefaultConnection`; la API actual apunta a `ClienteDB`.
+- Las migraciones viven en `BaezStone.Fullstack.Api/Migrations/` (nombres en kebab-case salvo `AgregarCliente`, p. ej. `20260610052233_add-movie.cs`). Hay **9 migraciones**; la más reciente es `20261105220604_ClienteMaxLength` y están todas aplicadas en `ClienteDB` y commiteadas.
 - **La herramienta global `dotnet-ef` instalada en esta máquina es la v10.0.9 y revienta contra este proyecto net6.0/EF6** (`FileLoadException: Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`). Usa una herramienta 6.x:
   ```bash
   dotnet tool install --global dotnet-ef --version 6.0.36
@@ -97,4 +97,4 @@ Todavía no hay nada conectado. Para llamar a la API desde el navegador necesita
 
 ## Git
 - El árbol `BaezStone.Fullstack.WebUI/` **sí está versionado** (42 archivos). El `.gitignore` anidado de Angular (`AppWebWithAng11/.gitignore:5,7`) ignora `/dist` y `/out-tsc`, y el `.gitignore` raíz (`:294`) ignora `node_modules/`; los tres quedan fuera de git. La antigua "trampa" de reglas ancladas a la raíz ya no aplica.
-- **Trabajo en curso sin commitear** (confirma con `git status` antes de tocar): `Controllers/ClientesController.cs`, `Dtos/ClienteDto.cs`, `Dtos/ResponseDto.cs`, `Repositorio/`, `Migrations/20261101053603_AgregarCliente*` y `ApplicationDbContextModelSnapshot.cs` modificado.
+- El árbol está limpio (último commit `fa13c52`); confirma con `git status` antes de tocar.
