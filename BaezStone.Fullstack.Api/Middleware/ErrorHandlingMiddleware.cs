@@ -1,10 +1,7 @@
-using System;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using BaezStone.Fullstack.Api.Dtos;
 
 namespace BaezStone.Fullstack.Api.Middleware
 {
@@ -27,23 +24,32 @@ namespace BaezStone.Fullstack.Api.Middleware
             {
                 await _next(context);
             }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                // Cliente desconectado: no es un error de servidor.
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception");
 
+                if (context.Response.HasStarted)
+                {
+                    throw;
+                }
+
                 context.Response.Clear();
-                context.Response.ContentType = "application/problem+json";
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
-                var problem = new ProblemDetails
+                var response = new ResponseDto
                 {
-                    Status = context.Response.StatusCode,
-                    Title = "Error interno del servidor",
-                    Detail = _env.IsDevelopment() ? ex.ToString() : "Se ha producido un error inesperado."
+                    IsSuccess = false,
+                    DisplayMessage = "Se ha producido un error inesperado.",
+                    ErrorMessages = _env.IsDevelopment()
+                        ? new List<string> { ex.ToString() }
+                        : new List<string>()
                 };
 
-                var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-                await JsonSerializer.SerializeAsync(context.Response.Body, problem, options);
+                await context.Response.WriteAsJsonAsync(response);
             }
         }
     }

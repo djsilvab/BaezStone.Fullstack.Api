@@ -1,7 +1,8 @@
-using AutoMapper;
 using BaezStone.Fullstack.Api.Data;
+using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Middleware;
 using BaezStone.Fullstack.Api.Repositorio;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,7 +14,27 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 builder.Services.AddScoped<IClienteRepositorio, ClienteRepositorio>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                                .Where(e => e.Value?.Errors.Count > 0)
+                                .SelectMany(x => x.Value!.Errors)
+                                .Select(x => x.ErrorMessage)
+                                .ToList();
+        
+            return new BadRequestObjectResult(new ResponseDto
+            {
+                IsSuccess = false,
+                DisplayMessage = "Error de validación",
+                ErrorMessages = errors
+            });
+        };
+    });
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
