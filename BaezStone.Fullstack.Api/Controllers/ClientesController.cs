@@ -31,7 +31,7 @@ public class ClientesController : ControllerBase
 
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ResponseDto>> GetCliente(int id)
     {
         var cliente = await _clienteRepositorio.GetClienteById(id);

@@ -13,6 +13,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Category> Categories { get; set; } = null!;
     public DbSet<Movie> Movies { get; set; } = null!;
     public DbSet<Cliente> Clientes { get; set; } = null!;
+    public DbSet<Usuario> Usuarios { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

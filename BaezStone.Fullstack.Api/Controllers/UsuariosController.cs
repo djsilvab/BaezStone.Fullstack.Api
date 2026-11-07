@@ -1,0 +1,63 @@
+﻿using BaezStone.Fullstack.Api.Dtos;
+using BaezStone.Fullstack.Api.Models;
+using BaezStone.Fullstack.Api.Repositorio;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
+namespace BaezStone.Fullstack.Api.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+public class UsuariosController : ControllerBase
+{
+    private readonly IUsuarioRepositorio _userRepo;
+    private readonly ResponseDto _response;
+
+    public UsuariosController(IUsuarioRepositorio userRepo)
+    {
+        _userRepo = userRepo;
+        _response = new();
+    }
+
+    [HttpPost("Register")]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ResponseDto>> Register([FromBody] UsuarioDto usuarioDto)
+    {
+        var id = await _userRepo.Register(
+            new Usuario { UserName = usuarioDto.UserName }, 
+            usuarioDto.Password);
+
+        if(id == -1)
+        {
+            _response.IsSuccess = false;
+            _response.DisplayMessage = "El usuario ya existe";
+            return Conflict(_response);
+        }        
+
+        _response.DisplayMessage = "Usuario registrado con éxito";
+        _response.Result = id;
+
+        return CreatedAtAction(nameof(GetUsuario), new { id = id }, _response);
+    }
+
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ResponseDto>> GetUsuario(int id)
+    {
+        var usuario = await _userRepo.GetUsuarioById(id);
+
+        if (usuario is null)
+        {
+            _response.IsSuccess = false;
+            _response.DisplayMessage = "Usuario no encontrado";
+            return NotFound(_response);
+        }
+
+        _response.Result = usuario;
+        _response.DisplayMessage = "Usuario encontrado";
+        return Ok(_response);
+    }
+}
