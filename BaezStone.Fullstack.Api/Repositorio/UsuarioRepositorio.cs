@@ -20,11 +20,7 @@ public class UsuarioRepositorio : IUsuarioRepositorio
 
     public async Task<bool> Existe(string userName)
     {
-        if (await _db.Usuarios.AnyAsync(u => u.UserName.ToLower() == userName.ToLower()))
-        {
-            return true;
-        }
-        return false;
+        return await _db.Usuarios.AsNoTracking().AnyAsync(u => u.UserName == userName);
     }
 
     public async Task<UsuarioReadDto?> GetUsuarioById(int id)
@@ -35,9 +31,16 @@ public class UsuarioRepositorio : IUsuarioRepositorio
                         .FirstOrDefaultAsync();
     }
 
-    public async Task<string> Login(string userName, string password)
+    public async Task<UsuarioReadDto?> Login(string userName, string password)
     {
-        throw new NotImplementedException();
+        var usuario = await _db.Usuarios.AsNoTracking()
+                                        .FirstOrDefaultAsync(u => u.UserName == userName);
+
+        if (usuario is null) return null;
+
+        return VerificarPasswordHash(password, usuario.PasswordHash, usuario.PasswordSalt)
+                    ? _mapper.Map<UsuarioReadDto>(usuario) : null;
+        
     }
 
     public async Task<int> Register(Usuario usuario, string password)
@@ -62,5 +65,12 @@ public class UsuarioRepositorio : IUsuarioRepositorio
             passwordSalt = hmac.Key;
             passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
         }
+    }
+
+    private bool VerificarPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+    {
+        using var hmac = new System.Security.Cryptography.HMACSHA512(passwordSalt);
+        var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(computedHash, passwordHash);      
     }
 }
