@@ -4,7 +4,7 @@ Dos apps independientes, un solo repo. Lee la sección de la app que vas a tocar
 
 | App | Ruta | Stack | ¿En `BaezStone.Fullstack.slnx`? |
 |---|---|---|---|
-| API | `BaezStone.Fullstack.Api/` | .NET 6 Web API, EF Core 6.0.36, AutoMapper 12 (+ `Extensions.Microsoft.DependencyInjection` 12), `JwtBearer` 6.0.36, Swashbuckle | **Sí** (único proyecto) |
+| API | `BaezStone.Fullstack.Api/` | .NET 6 Web API, EF Core 6.0.36, AutoMapper 12 (+ `Extensions.Microsoft.DependencyInjection` 12), `JwtBearer` 6.0.36, Swashbuckle 6.5.0 (+ `Filters` 8.0.3) | **Sí** (único proyecto) |
 | Frontend (existente) | `BaezStone.Fullstack.WebUI/AppWebWithAng11/` | Angular 11.2.19, TypeScript 4.1.6, Angular Material 11.2.13, TSLint, pnpm | No |
 | Frontend (base nueva) | `BaezStone.Fullstack.WebUI/AppWebWithAng13/` | Angular 13.1.x, CLI 13.1.1, TypeScript 4.5.2, SCSS, sin linter, pnpm | No |
 
@@ -23,35 +23,36 @@ Dos apps independientes, un solo repo. Lee la sección de la app que vas a tocar
 - `Category.Estado` existe en la entidad pero **no** está en `CategoryCreateDto`/`CategoryReadDto` — la API nunca lo expone.
 - Las rutas son `api/[controller]` → `api/category`, `api/movie`, `api/clientes`. `Category` y `Movie` tienen **solo GET/POST**; `api/clientes` tiene **GET (lista/por id), POST, PUT y DELETE**.
 - `Middleware/ErrorHandlingMiddleware.cs` se registra primero y convierte cualquier excepción no controlada en un 500 con `ResponseDto` (`IsSuccess=false`, mensaje en español y el stack solo en Development dentro de `ErrorMessages`). Si `Response.HasStarted` relanza la excepción; los `OperationCanceledException` con `RequestAborted` cancelado se ignoran. No añadas try/catch a nivel de controlador.
-- La validación automática de `[ApiController]` también responde `ResponseDto` mediante `InvalidModelStateResponseFactory` (`Program.cs:37-55`). Todo el contrato de error (400/401/404/409/500) usa `ResponseDto`; ya no se usa `ProblemDetails`.
-- Hay autenticación JWT registrada (ver feature `Usuario`): `AddAuthentication(...).AddJwtBearer(...)` con `TokenValidationParameters` (`Program.cs:20-34`) y `app.UseAuthentication()` antes de `app.UseAuthorization()` (`Program.cs:78-80`). `ClientesController` lleva `[Authorize]`; `UsuariosController` queda anónimo a propósito (login/registro).
-- **No hay ninguna política de CORS configurada.** Una app de navegador en otro origen no puede llamar a esta API hasta que se añada una (ver checklist de integración).
+- La validación automática de `[ApiController]` también responde `ResponseDto` mediante `InvalidModelStateResponseFactory` (`Program.cs:72-87`). Todo el contrato de error (400/401/404/409/500) usa `ResponseDto`; ya no se usa `ProblemDetails`.
+- Hay autenticación JWT registrada (ver feature `Usuario`): `AddAuthentication(...).AddJwtBearer(...)` con `TokenValidationParameters` que validan firma, emisor, audiencia y vigencia (`Program.cs:24-42`); el pipeline es `UseCors` → `UseAuthentication` → `UseAuthorization` (`Program.cs:105-111`). `ClientesController` lleva `[Authorize]`; `UsuariosController` queda anónimo a propósito (login/registro).
+- **CORS**: política nombrada `"Angular"` (`Program.cs:63-67`) con `WithOrigins("https://localhost:4200", "http://localhost:4200")` + `AllowAnyMethod()`/`AllowAnyHeader()`; `app.UseCors("Angular")` va **antes** de `UseAuthentication` (`Program.cs:107`) para que el 401 también lleve cabeceras CORS. Verificado: preflight `OPTIONS` → 204 con `Access-Control-Allow-Headers: authorization`; `Origin` no permitido → sin `Access-Control-Allow-Origin`. Si Ang11 y Ang13 deben correr a la vez, hay que añadir el segundo puerto.
+- **Swagger con candado**: `Swashbuckle.AspNetCore.Filters` 8.0.3 y `SecurityRequirementsOperationFilter` esperan el esquema llamado `"oauth2"`; definido como `Type = Http`, `Scheme = "bearer"`, `BearerFormat = "JWT"` (`Program.cs:44-61`), el token se pega **sin** el prefijo `Bearer`. `SwaggerDoc("v1", Title = "BaezStone.Fullstack.Api")`.
 - `app.UseHttpsRedirection()` está activo; `dotnet run` usa el perfil de `Properties/launchSettings.json` → `https://localhost:7276` / `http://localhost:5082`, Swagger en `/swagger`.
 
 ### Feature `Cliente`
 - `Models/Cliente.cs` (Id, Nombres, Apellidos, Direccion, Telefono; `[Key]`, `[Required, MaxLength(100/100/200/20)]`, `= default!`) más `FechaCreacion` (no null, default de BD `SYSUTCDATETIME()`) y `FechaActualizacion` (nullable); registrado como `DbSet<Cliente> Clientes` en `Data/ApplicationDbContext.cs:15`.
 - `Dtos/ClienteCreateDto.cs` **incluye `Id`** (decisión: un solo DTO para crear/actualizar) con `[Required, MaxLength]`; `POST` exige `Id == 0` y `PUT` exige `{id:int}` > 0 e igual al `Id` del body. `Dtos/ClienteReadDto.cs` expone `NombreCompleto` (concatenado en `Profiles/MappingProfile.cs`) y **no** expone las fechas.
-- `Dtos/ResponseDto.cs` es el sobre único de respuesta (`IsSuccess`, `Result`, `DisplayMessage`, `ErrorMessages`): lo usan el controlador, la validación automática (`Program.cs:37-55`) y el middleware.
-- `Repositorio/IClienteRepositorio.cs` + `Repositorio/ClienteRepositorio.cs`: implementados (lecturas con `AsNoTracking().ProjectTo<>`, CRUD, fechas UTC) y registrados con `AddScoped<IClienteRepositorio, ClienteRepositorio>` (`Program.cs:17`). `CreateUpdateCliente` mezcla alta y edición: `Id == 0` crea; si no, actualiza y devuelve `null` cuando no existe.
-- `Controllers/ClientesController.cs` → ruta `api/clientes`. GET (lista/por id), POST, PUT y DELETE con `{id:int}`, `ProducesResponseType`, `ResponseDto`, `IClienteRepositorio` y sin `try/catch`. Deuda: sin `CancellationToken`, `CreateUpdateCliente` mezcla create/update, `GetClientes` sin paginación y `ResponseDto` sin `traceId`.
+- `Dtos/ResponseDto.cs` es el sobre único de respuesta (`IsSuccess`, `Result`, `DisplayMessage`, `ErrorMessages`): lo usan el controlador, la validación automática (`Program.cs:72-87`) y el middleware.
+- `Repositorio/IClienteRepositorio.cs` + `Repositorio/ClienteRepositorio.cs`: implementados (lecturas con `AsNoTracking().ProjectTo<>`, CRUD, fechas UTC) y registrados con `AddScoped<IClienteRepositorio, ClienteRepositorio>` (`Program.cs:21`). `CreateUpdateCliente` mezcla alta y edición: `Id == 0` crea; si no, actualiza y devuelve `null` cuando no existe.
+- `Controllers/ClientesController.cs` → ruta `api/clientes`. GET (lista/por id), POST, PUT y DELETE con `{id:int}`, `ProducesResponseType`, `ResponseDto`, `IClienteRepositorio`, `[Authorize]` a nivel de controlador (`ClientesController.cs:10`) y sin `try/catch`. Deuda: sin `CancellationToken`, `CreateUpdateCliente` mezcla create/update, `GetClientes` sin paginación y `ResponseDto` sin `traceId`.
 - **Fechas en UTC** (decisión): el repositorio asigna `DateTime.UtcNow` y el default es `SYSUTCDATETIME()`. La conversión a hora local se hace al presentar (`AT TIME ZONE` en SQL o en el frontend); no usar `DateTime.Now`/`GETDATE()`. Esta máquina está en `SA Pacific Standard Time` (UTC-5): `06:05` en BD = `01:05` local.
 - Migraciones de `Cliente`: `20261101053603_AgregarCliente` (tabla `Clientes`), `20261105060429_UpdCliente-FechaCreacionAct` (añade `FechaActualizacion`), `20261105065326_ClienteFechaCreacionDefault` (default `SYSUTCDATETIME()`) y `20261105220604_ClienteMaxLength` (longitudes `nvarchar`).
 
 ### Feature `Usuario` (autenticación JWT)
 - `Models/Usuario.cs`: `Id`, `UserName` (`[Required, MaxLength(50)]`), `PasswordHash`/`PasswordSalt` (`byte[]`); `[Index(nameof(UserName), IsUnique = true)]`. Registrado como `DbSet<Usuario> Usuarios` en `Data/ApplicationDbContext.cs:16`.
 - `Dtos/UsuarioDto.cs` (entrada de Login/Register: `UserName` 4-50 y `Password` 6-50), `Dtos/UsuarioReadDto.cs` (`Id`, `UserName`, nunca hash) y `Dtos/UsuarioLoginReadDto.cs` (`Id`, `UserName`, `Token`; solo lo devuelve `Login`).
-- `Repositorio/UsuarioRepositorio.cs` (`Program.cs:18`): `Existe`/`GetUsuarioById` con `AsNoTracking()` (+`ProjectTo`), `Register` hashea con HMAC-SHA512 (salt aleatorio) y devuelve `-1` si el usuario ya existe, `Login` devuelve `null` uniforme ante usuario inexistente **o** contraseña mala (anti-enumeración), `VerificarPasswordHash` es privado y usa `CryptographicOperations.FixedTimeEquals`, `CrearToken` firma HS512 con claims `ClaimTypes.NameIdentifier`/`ClaimTypes.Name` y `Expires = UtcNow.AddDays(1)`.
+- `Repositorio/UsuarioRepositorio.cs` (`Program.cs:22`): `Existe`/`GetUsuarioById` con `AsNoTracking()` (+`ProjectTo`), `Register` hashea con HMAC-SHA512 (salt aleatorio) y devuelve `-1` si el usuario ya existe, `Login` devuelve `null` uniforme ante usuario inexistente **o** contraseña mala (anti-enumeración), `VerificarPasswordHash` es privado y usa `CryptographicOperations.FixedTimeEquals`, `CrearToken` firma HS512 con claims `ClaimTypes.NameIdentifier`/`ClaimTypes.Name`, `Expires = UtcNow.AddDays(1)` y `Issuer`/`Audience` desde `AppSettings:*` (`UsuarioRepositorio.cs:95-98`).
 - `Controllers/UsuariosController.cs` → `api/usuarios`: `POST Login` (200 con token / 401 idéntico), `POST Register` (201 + `Location` a `GET {id}`, 400, 409) y `GET {id:int}` (200, 404). **Sin `[Authorize]`**: login y registro deben ser anónimos; `GET {id}` es deuda (expone `userName` sin autenticar).
-- `BaezStone.Fullstack.Api.csproj`: `Microsoft.AspNetCore.Authentication.JwtBearer` **6.0.36** (10.x/8.x incompatibles con net6 → `NU1202`). La clave vive en `appsettings.json` → `AppSettings:Token` (128 caracteres) y **está commiteada**: deuda de seguridad, mover a User Secrets.
-- `Program.cs:20-34`: `ValidateIssuer`/`ValidateAudience` en `false` y `ValidIssuer`/`ValidAudience` leen `Jwt:Issuer`/`Jwt:Audience`, claves que **no existen** en configuración (inocuo mientras no se validen).
-- Migración: `20261107051358_AgregarUsuario` (tabla `Usuarios` + índice único `IX_Usuarios_UserName`). Evidencia funcional: jwt.io verifica la firma y `exp − iat = 86400`.
+- `BaezStone.Fullstack.Api.csproj`: `Microsoft.AspNetCore.Authentication.JwtBearer` **6.0.36** (10.x/8.x incompatibles con net6 → `NU1202`) y `Swashbuckle.AspNetCore.Filters` **8.0.3** (9.x/10.x no soportan net6). La clave vive en `appsettings.json` → `AppSettings:Token` (128 caracteres) y **está commiteada**: deuda de seguridad, mover a User Secrets.
+- `Program.cs:24-42`: `ValidateIssuerSigningKey`/`ValidateIssuer`/`ValidateAudience`/`ValidateLifetime` en **`true`**; `ValidIssuer` lee `AppSettings:Issuer` (`BaezStone.Fullstack.Api`) y `ValidAudience` lee `AppSettings:Audience` (`BaezStone.Fullstack.WebUI`) con `?? throw` fail-fast si faltan; `ClockSkew` sale de `AppSettings:ClockSkewMinutes` (`int.TryParse`, fallback 5 = default del framework). La lambda de `AddJwtBearer` se evalúa en la **primera petición autenticada**, no en `builder.Build()`.
+- Migración: `20261107051358_AgregarUsuario` (tabla `Usuarios` + índice único `IX_Usuarios_UserName`). Evidencia funcional: jwt.io valida la firma con `iss`/`aud` presentes (`Valid JWT`) y `exp − iat = 86400`; `GET /api/clientes` responde 401 sin token y 200 con `Authorization: Bearer`.
 - Documentación detallada: `docs/RF-02-usuarios-jwt.md`.
 
 ### EF Core y base de datos
 - Hay **dos** cadenas de conexión en `appsettings.json`:
   - `DefaultConnection` → LocalDB `PeliculasDB` (`Server=(localdb)\mssqllocaldb;Trusted_Connection=True`).
   - `ClienteConnection` → `Server=localhost;Database=ClienteDB` (SQL Server local, **no** LocalDB).
-- `Program.cs:11` registra el `DbContext` con **`ClienteConnection`**, no con `DefaultConnection`; la API actual apunta a `ClienteDB`.
+- `Program.cs:16` registra el `DbContext` con **`ClienteConnection`**, no con `DefaultConnection`; la API actual apunta a `ClienteDB`.
 - Las migraciones viven en `BaezStone.Fullstack.Api/Migrations/` (nombres en kebab-case salvo `AgregarCliente`, p. ej. `20260610052233_add-movie.cs`). Hay **10 migraciones**; la más reciente es `20261107051358_AgregarUsuario` y están todas aplicadas en `ClienteDB` y commiteadas.
 - **La herramienta global `dotnet-ef` instalada en esta máquina es la v10.0.9 y revienta contra este proyecto net6.0/EF6** (`FileLoadException: Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`). Usa una herramienta 6.x:
   ```bash
@@ -112,9 +113,9 @@ pnpm exec ng serve                                          # dev server en http
 - `ListaPeliculasComponent` sirve **datos mock hardcodeados** desde un `setTimeout(..., 2500)` — no está conectada a la API.
 
 ### Checklist de integración (frontend ↔ API)
-Todavía no hay nada conectado. Para llamar a la API desde el navegador necesitas todo esto:
-1. Una política de CORS en `Program.cs` (`builder.Services.AddCors(...)` + `app.UseCors(...)` con el origen de desarrollo de Angular, p. ej. `http://localhost:4200`) — actualmente ausente.
-2. `HttpClientModule` importado en `src/app/app.module.ts` — actualmente ausente.
+El navegador ya puede llamar a la API: la política CORS `"Angular"` cubre `http://localhost:4200` y `https://localhost:4200`. Falta todo lo demás:
+1. ✅ **CORS en `Program.cs`** — hecho: preflight 204 y `Access-Control-Allow-Headers: authorization` verificados. Si Ang11 y Ang13 deben correr a la vez, añade el segundo puerto (la política solo cubre `:4200`).
+2. `HttpClientModule` importado en `src/app/app.module.ts` — **ausente**.
 3. Una URL base en `src/environments/environment.ts` / `environment.prod.ts` (ambos contienen solo `{ production: bool }`).
 4. En la API está activo `UseHttpsRedirection()`: llama a la URL **https**, o enruta el dev server a través de un `proxy.conf.json` de Angular y asume que la redirección romperá el proxy — decide esto a propósito.
 5. `Environment` todavía no tiene la clave `apiUrl`; añádela en los dos archivos de environment y mantenlos sincronizados mediante la entrada `fileReplacements` de `angular.json`.
@@ -127,5 +128,5 @@ Todavía no hay nada conectado. Para llamar a la API desde el navegador necesita
 
 ## Git
 - El árbol `BaezStone.Fullstack.WebUI/` **sí está versionado** (41 archivos en `AppWebWithAng11` + 31 en `AppWebWithAng13`). El `.gitignore` anidado de Angular (`AppWebWithAng11/.gitignore:5,7`) ignora `/dist` y `/out-tsc`, y el `.gitignore` raíz (`:294`) ignora `node_modules/`; los tres quedan fuera de git. La antigua "trampa" de reglas ancladas a la raíz ya no aplica.
-- El árbol puede tener trabajo en curso; confirma con `git status` antes de tocar. Último commit conocido: `c1a412e` (`Añade JWT y base Angular 13`). En la última revisión había cambios sin commitear en `Program.cs` (`app.UseAuthentication()`) y `Controllers/ClientesController.cs` (`[Authorize]`).
+- El árbol estaba **limpio** en la última revisión. Último commit: `9739286` (`Protege la API con autenticación JWT`): incluye `Program.cs`, `appsettings.json`, `Repositorio/UsuarioRepositorio.cs`, `Controllers/ClientesController.cs` (`[Authorize]`), `.csproj` y los tres `docs/RF-*.md`. Rama de trabajo: `feature/next-task`, con PR #1 abierto. Confirma con `git status` antes de tocar.
 - Documentos de requerimientos/estado: `docs/RF-01-clientes.md`, `docs/RF-02-usuarios-jwt.md`, `docs/RF-03-frontend.md`.

@@ -4,9 +4,9 @@
 |---|---|
 | Etapa | 1 — API base |
 | Alcance | `BaezStone.Fullstack.Api`: entidad `Cliente`, repositorio, endpoints CRUD, sobre de respuesta `ResponseDto` y manejo global de errores (400/404/500) |
-| Estado | Implementado y verificado; solo pendiente de commit la protección `[Authorize]` (ver §6) |
-| Fecha del documento | 2026-11-10 |
-| Commits | `f38c4aa`, `2e59459`, `fa13c52`, `b0c9e4e`, `7a9a2d0`, `e040432`, `0e0f047` |
+| Estado | Implementado y verificado; `[Authorize]`, `UseAuthentication()` y CORS commiteados en `9739286` (ver §5 y §6) |
+| Fecha del documento | 2026-11-11 |
+| Commits | `f38c4aa`, `2e59459`, `fa13c52`, `b0c9e4e`, `7a9a2d0`, `e040432`, `0e0f047`, `9739286` (protección + CORS) |
 | Fuera de alcance | Legado `Category`/`Movie` (commits `cc075a2`…`8a760b0`), autenticación (ver `RF-02`), frontend (ver `RF-03`) |
 
 ## 1. Alcance
@@ -25,8 +25,8 @@ CRUD completo de clientes sobre SQL Server (`ClienteDB`) con paginación pendien
 | `Repositorio/IClienteRepositorio.cs` + `ClienteRepositorio.cs` | `CreateUpdateCliente`, `DeleteCliente`, `GetClienteById`, `GetClientes`; lecturas con `AsNoTracking().ProjectTo<>()` y orden `Apellidos`, `Nombres` |
 | `Dtos/ResponseDto.cs` | Sobre único: `IsSuccess` (default `true`), `Result`, `DisplayMessage`, `ErrorMessages` |
 | `Middleware/ErrorHandlingMiddleware.cs` | Registrado primero; captura cualquier excepción no controlada y responde 500 con `ResponseDto`; el stack va en `ErrorMessages` solo en Development; respeta `Response.HasStarted` (relanza) e ignora `OperationCanceledException` si `RequestAborted` está cancelado |
-| `Program.cs` | `InvalidModelStateResponseFactory` devuelve `ResponseDto` con 400 (sustituye `ProblemDetails`) |
-| `Controllers/ClientesController.cs` | Ruta `api/clientes`, inyección de `IClienteRepositorio`, `ProducesResponseType` y sin `try/catch`; `[Authorize]` añadido en árbol de trabajo (ver §6) |
+| `Program.cs` | `InvalidModelStateResponseFactory` devuelve `ResponseDto` con 400 (sustituye `ProblemDetails`, `Program.cs:72-87`); política CORS `"Angular"` y validación JWT (ver `RF-02`) |
+| `Controllers/ClientesController.cs` | Ruta `api/clientes`, inyección de `IClienteRepositorio`, `ProducesResponseType`, sin `try/catch` y `[Authorize]` a nivel de controlador (`ClientesController.cs:10`, commit `9739286`) |
 | Migraciones | `20261101053603_AgregarCliente`, `20261105060429_UpdCliente-FechaCreacionAct`, `20261105065326_ClienteFechaCreacionDefault`, `20261105220604_ClienteMaxLength` |
 
 ## 3. Decisiones técnicas
@@ -42,7 +42,7 @@ CRUD completo de clientes sobre SQL Server (`ClienteDB`) con paginación pendien
 
 | Verbo | Ruta | Respuestas |
 |---|---|---|
-| GET | `/api/clientes` | 200 lista ordenada; `[Authorize]` en árbol de trabajo |
+| GET | `/api/clientes` | 200 lista ordenada; 401 sin token (`[Authorize]` a nivel de controlador) |
 | GET | `/api/clientes/{id:int}` | 200, 404 |
 | POST | `/api/clientes` | 201 + `Location` (`CreatedAtAction`), 400 (validación o `Id != 0`), 500 |
 | PUT | `/api/clientes/{id:int}` | 200, 400 (`id` inválido o distinto del body), 404 |
@@ -55,14 +55,16 @@ Todo el cuerpo de respuesta es `ResponseDto`. Errores de validación: `IsSuccess
 - `dotnet build BaezStone.Fullstack.Api` sin errores (línea base: solo `NETSDK1138`).
 - Smoke test con la API en ejecución: `GET /api/clientes` → 200 `application/json` camelCase con el sobre `ResponseDto`.
 - Flujos 201/400/404 comprobados desde Swagger.
-- No existe proyecto de tests automatizados; la verificación es manual vía Swagger.
+- `GET /api/clientes` sin token → **401** con `access-control-allow-origin`; con `Authorization: Bearer` → **200** (commit `9739286`).
+- CORS: `Origin: http://localhost:4200` → `Access-Control-Allow-Origin` + `Vary: Origin`; `Origin: http://evil.com` → **sin** cabecera CORS; preflight `OPTIONS` → **204** con `Access-Control-Allow-Headers: authorization`.
+- No existe proyecto de tests automatizados; la verificación es manual vía Swagger y `curl`.
 
 ## 6. Pendientes y deudas
 
 | Prioridad | Ítem |
 |---|---|
-| Alta | Commitear `[Authorize]` en `ClientesController` (hoy sin commitear) y `UseAuthentication()` en `Program.cs:78`; sin lo segundo, `[Authorize]` devolvería 401 incluso con token válido |
-| Alta | CORS inexistente: ningún origen de navegador puede consumir la API (afecta a `RF-03`) |
+| Resuelto | `[Authorize]` en `ClientesController` + `UseAuthentication()` commiteados en `9739286` (`Program.cs:109`); verificado 401 sin token / 200 con token |
+| Resuelto | CORS: política `"Angular"` para `localhost:4200` (http y https), probada con 5 casos y preflight (ver §5) |
 | Media | `GetClientes` sin paginación ni filtros |
 | Media | Sin `CancellationToken` en repositorio ni controlador |
 | Media | `CreateUpdateCliente` mezcla alta y edición; el 500 manual de `POST` duplica la responsabilidad del middleware |
@@ -72,6 +74,6 @@ Todo el cuerpo de respuesta es `ResponseDto`. Errores de validación: `IsSuccess
 
 ## 7. Próximos pasos
 
-1. Commitear la protección de endpoints y verificar 401 sin token / 200 con token.
-2. Añadir CORS para `http://localhost:4200`.
-3. Paginación (`page`/`pageSize`) y `CancellationToken`.
+1. Paginación (`page`/`pageSize`) y `CancellationToken`.
+2. Separar `CreateUpdateCliente` en alta/edición y eliminar el 500 manual de `POST`.
+3. Añadir `traceId` a `ResponseDto` para correlacionar con logs.

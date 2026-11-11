@@ -4,9 +4,9 @@
 |---|---|
 | Etapa | 3 — Cliente web |
 | Alcance | `BaezStone.Fullstack.WebUI`: `AppWebWithAng11` (existente) y `AppWebWithAng13` (base nueva), estado actual e integración pendiente con la API |
-| Estado | Solo estructura; **ningún** frontend consume la API todavía |
-| Fecha del documento | 2026-11-10 |
-| Commits | `44055e4` (Ang11), `c1a412e` (Ang13 + `Añade JWT y base Angular 13`) |
+| Estado | Solo estructura; **ningún** frontend consume la API todavía (CORS ya resuelto en la API) |
+| Fecha del documento | 2026-11-11 |
+| Commits | `44055e4` (Ang11), `c1a412e` (Ang13 + `Añade JWT y base Angular 13`), `9739286` (CORS en la API) |
 
 ## 1. Alcance
 
@@ -52,7 +52,7 @@ Recomendación: elegir Ang13 como app viva (Angular 11 está fuera de soporte de
 
 Ninguno de los dos proyectos está conectado. Para el primer consumo real (`POST /api/usuarios/Login`, luego `GET /api/clientes` con token):
 
-1. **CORS en la API** (`builder.Services.AddCors(...)` + `app.UseCors(...)` con `http://localhost:4200`) — **ausente** y bloqueante.
+1. ✅ **CORS en la API** — hecho (commit `9739286`): política `"Angular"` para `http://localhost:4200` y `https://localhost:4200`; el preflight permite `authorization`. Ojo: si Ang11 y Ang13 corren a la vez, hay que añadir el segundo puerto.
 2. **`HttpClientModule`** en el `AppModule` del frontend elegido — ausente en ambos.
 3. **URL base**: añadir `apiUrl` en `src/environments/environment.ts` y `environment.prod.ts` (hoy solo `{ production }`) y mantenerlos sincronizados vía `fileReplacements` de `angular.json`.
 4. **HTTPS**: `UseHttpsRedirection()` está activo en la API. Llamar a `https://localhost:7276` (con certificado de desarrollo de confianza) o usar `proxy.conf.json` asumiendo que la redirección puede romper el proxy.
@@ -64,7 +64,7 @@ Ninguno de los dos proyectos está conectado. Para el primer consumo real (`POST
 
 | Prioridad | Ítem |
 |---|---|
-| Crítica | CORS en la API (sin esto el navegador no puede llamar a ningún endpoint) |
+| Resuelto | CORS en la API (política `"Angular"`, verificada con preflight y origen denegado) |
 | Crítica | Decidir el frontend vivo (Ang11 vs. Ang13) antes de escribir código de integración |
 | Alta | `HttpClientModule`, `environment.apiUrl`, servicio de auth + interceptor + guard |
 | Alta | Sustituir los mocks de `ListaPeliculasComponent` (Ang11) por datos reales, o portar la vista a Ang13 |
@@ -76,7 +76,6 @@ Ninguno de los dos proyectos está conectado. Para el primer consumo real (`POST
 ## 7. Próximos pasos
 
 1. Cerrar la decisión Ang11 vs. Ang13.
-2. Añadir CORS en `Program.cs` para `http://localhost:4200`.
-3. Crear en el frontend elegido: `environment.apiUrl`, `HttpClientModule`, `AuthService`, `AuthInterceptor` y `AuthGuard`.
-4. Implementar la pantalla de login y probar el flujo completo contra `RF-02`.
-5. Conectar la vista de clientes a `/api/clientes` con el token (`RF-01`).
+2. Crear en el frontend elegido: `environment.apiUrl`, `HttpClientModule`, `AuthService`, `AuthInterceptor` y `AuthGuard`.
+3. Implementar la pantalla de login y probar el flujo completo contra `RF-02`.
+4. Conectar la vista de clientes a `/api/clientes` con el token (`RF-01`).
