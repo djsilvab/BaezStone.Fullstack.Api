@@ -5,6 +5,10 @@ using BaezStone.Fullstack.Api.Repositorio;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Swashbuckle.AspNetCore.Filters;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,19 +24,47 @@ builder.Services.AddScoped<IUsuarioRepositorio, UsuarioRepositorio>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                System.Text.Encoding.UTF8.GetBytes(builder.Configuration["AppSettings:Token"] ?? throw new InvalidOperationException("JWT key is not configured.")))
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,            
+            ValidIssuer = builder.Configuration.GetSection("AppSettings:Issuer").Value 
+                            ?? throw new InvalidOperationException("AppSettings:Issuer no está configurado."),
+            ValidAudience = builder.Configuration.GetSection("AppSettings:Audience").Value
+                            ?? throw new InvalidOperationException("AppSettings:Audience no está configurado."),
+            ClockSkew = TimeSpan.FromMinutes(
+                            int.TryParse(builder.Configuration.GetSection("AppSettings:ClockSkewMinutes").Value, out int clockSkewMinutes) ? clockSkewMinutes : 5),
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration.GetSection("AppSettings:Token").Value ?? throw new InvalidOperationException("JWT key no está configurado.")))
         };
     });
 
+builder.Services.AddSwaggerGen(options =>
+{
+    options.OperationFilter<SecurityRequirementsOperationFilter>();
+    options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme",
+        In = ParameterLocation.Header,
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "BaezStone.Fullstack.Api",
+        Version = "v1"
+    });
+});
+
+builder.Services.AddCors(options => 
+    options.AddPolicy("Angular", policy => 
+        policy.WithOrigins("https://localhost:4200", "http://localhost:4200")
+              .AllowAnyMethod()
+              .AllowAnyHeader()));
 
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
@@ -57,7 +89,6 @@ builder.Services.AddControllers()
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -72,6 +103,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("Angular");
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

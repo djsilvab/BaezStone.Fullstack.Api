@@ -85,12 +85,17 @@ public class UsuarioRepositorio : IUsuarioRepositorio
             new Claim(ClaimTypes.Name, usuario.UserName)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value
+            ?? throw new InvalidOperationException("AppSettings:Token is not configured.")));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddDays(1),
+            Issuer = _configuration.GetSection("AppSettings:Issuer").Value
+                        ?? throw new InvalidOperationException("AppSettings:Issuer no está configurado."),
+            Audience = _configuration.GetSection("AppSettings:Audience").Value
+                        ?? throw new InvalidOperationException("AppSettings:Audience no está configurado."),
             SigningCredentials = creds
         };
 

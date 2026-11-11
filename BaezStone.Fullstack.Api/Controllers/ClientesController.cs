@@ -1,11 +1,13 @@
 ﻿using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Repositorio;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BaezStone.Fullstack.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class ClientesController : ControllerBase
 {
     private readonly IClienteRepositorio _clienteRepositorio;
