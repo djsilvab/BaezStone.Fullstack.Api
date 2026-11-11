@@ -1,0 +1,4 @@
+allowBuilds:
+  '@angular/cli': true
+  core-js: true
+  esbuild: true

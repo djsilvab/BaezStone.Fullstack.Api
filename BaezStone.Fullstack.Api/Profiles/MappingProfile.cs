@@ -23,6 +23,8 @@ namespace BaezStone.Fullstack.Api.Profiles
                 .ForMember(dest => dest.FechaActualizacion, opt => opt.Ignore());
 
             CreateMap<Usuario, UsuarioReadDto>();
+
+            CreateMap<Usuario, UsuarioLoginReadDto>();
         }
     }
 }

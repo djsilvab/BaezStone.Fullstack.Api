@@ -2,6 +2,7 @@ using BaezStone.Fullstack.Api.Data;
 using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Middleware;
 using BaezStone.Fullstack.Api.Repositorio;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,23 @@ builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 builder.Services.AddScoped<IClienteRepositorio, ClienteRepositorio>();
 builder.Services.AddScoped<IUsuarioRepositorio, UsuarioRepositorio>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(builder.Configuration["AppSettings:Token"] ?? throw new InvalidOperationException("JWT key is not configured.")))
+        };
+    });
+
 
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>

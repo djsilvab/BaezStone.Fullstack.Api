@@ -24,16 +24,16 @@ public class UsuariosController : ControllerBase
     public async Task<ActionResult<ResponseDto>> Login([FromBody] UsuarioDto userDto)
     {
 
-        var usuario = await _userRepo.Login(userDto.UserName, userDto.Password);
+        var login = await _userRepo.Login(userDto.UserName, userDto.Password);
 
-        if (usuario is null)
+        if (login is null)
         {
             _response.IsSuccess = false;
             _response.DisplayMessage = "Nombre de usuario o contraseña incorrectos";
             return Unauthorized(_response);
         }
 
-        _response.Result = usuario;
+        _response.Result = login;
         _response.DisplayMessage = "Login exitoso";
         return Ok(_response);
 

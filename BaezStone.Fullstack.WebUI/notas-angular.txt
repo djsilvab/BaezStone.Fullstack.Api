@@ -24,3 +24,46 @@ https://media.tenor.com/eFde1mp-8fYAAAAM/carregando.gif
 13) pnpm exec ng g c peliculas/lista-peliculas --skip-tests=true
 14) pnpm exec ng serve
 15) pnpm exec ng add @angular/material
+
+=== Proyecto 2: AppWebWithAng13 (Angular 13.1.x) - 2026-11-10 ===
+1) cd BaezStone.Fullstack.WebUI
+2) export PNPM_HOME="/c/Users/djsil/.pnpm"; export PATH="$PNPM_HOME/bin:$PATH"
+   - pnpm env use --global 14.21.3   (deja node.exe = v14.21.3 en $PNPM_HOME/bin)
+   - IMPORTANTE pnpm 11: ignora `use-node-version` en .npmrc (y `pnpm config get` lo
+     devuelve undefined). El unico mecanismo que funciona es el PATH: $PNPM_HOME/bin
+     tiene que ir ANTES de C:\nvm4w\nodejs, si no node es v22 y Angular 13 no lo soporta.
+   - pnpm 11 marca `pnpm env use` como deprecado: ahora es `pnpm runtime set node <v> -g`
+3) pnpm dlx --allow-build=@angular/cli @angular/cli@13.1.1 new AppWebWithAng13 \
+     --package-manager=pnpm --style=scss --routing=true --strict=false \
+     --skip-git --skip-install
+   (--skip-git evita .git anidado dentro del monorepo; --skip-install para controlar el
+    install a mano)
+4) .npmrc del proyecto: use-node-version=14.21.3   (paridad con AppWebWithAng11)
+5) pnpm-workspace.yaml del proyecto:
+     allowBuilds:
+       '@angular/cli': true
+       core-js: true
+       esbuild: true        <-- OBLIGATORIO en v13: sin esto `pnpm install` acaba con
+                                ERR_PNPM_IGNORED_BUILDS y EXIT=1
+6) package.json: "engines": { "node": "14.21.3" } + "useNodeVersion": "14.21.3"
+7) pnpm install
+8) pnpm exec ng version    # CLI 13.1.4 · Angular 13.1.3 · Node 14.21.3 · pnpm 11.22.0
+                            # (ng new con CLI 13.1.1 escribe rangos ~13.1.0 -> resuelve 13.1.3/13.1.4)
+9) pnpm exec ng build      # EXIT 0 (~49 s la primera vez)
+10) pnpm add -D @angular/language-service@13.1.1
+11) code --install-extension Angular.ng-template@13.3.4 --force
+    - falla con "Signature verification failed with 'NotSigned'" -> añadir temporalmente
+      "extensions.verifySignature": false a %APPDATA%\Code\User\settings.json,
+      reinstalar y QUITAR el ajuste (la firma solo se valida al descargar, no al arrancar).
+    - Quedan AMBAS versiones en disco: 11.2.14 (AppWebWithAng11) y 13.3.4 (AppWebWithAng13).
+      Solo puede haber UNA activa: Extensiones -> Angular Language Service -> engranaje ->
+      Install Another Version... -> 11.2.14 / 13.3.4.
+    - Desactivar "Extensions: Auto Update" para que no suba sola a la 22.2.0.
+12) pnpm exec ng serve    # http://localhost:4200
+    - arranque desacoplado: start-ng13.bat en %LOCALAPPDATA%\Temp\opencode (el tool corta
+      los procesos con timeout). Log: ng13-serve.log
+
+Diferencias Ang11 vs Ang13:
+- Angular 13 ya no incluye TSLint: no hay script `lint` ni tslint.json.
+- Angular 13 ya no genera carpeta `e2e/` ni protractor.
+- No hay `npm test` interactivo: `pnpm exec ng test --watch=false --browsers=ChromeHeadless`

@@ -4,6 +4,10 @@ using BaezStone.Fullstack.Api.Data;
 using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BaezStone.Fullstack.Api.Repositorio;
 
@@ -31,15 +35,18 @@ public class UsuarioRepositorio : IUsuarioRepositorio
                         .FirstOrDefaultAsync();
     }
 
-    public async Task<UsuarioReadDto?> Login(string userName, string password)
+    public async Task<UsuarioLoginReadDto?> Login(string userName, string password)
     {
         var usuario = await _db.Usuarios.AsNoTracking()
                                         .FirstOrDefaultAsync(u => u.UserName == userName);
 
         if (usuario is null) return null;
 
-        return VerificarPasswordHash(password, usuario.PasswordHash, usuario.PasswordSalt)
-                    ? _mapper.Map<UsuarioReadDto>(usuario) : null;
+        if (!VerificarPasswordHash(password, usuario.PasswordHash, usuario.PasswordSalt)) return null;
+
+        var login = _mapper.Map<UsuarioLoginReadDto>(usuario);
+        login.Token = CrearToken(usuario);
+        return login;
     }
 
     public async Task<int> Register(Usuario usuario, string password)
@@ -58,15 +65,38 @@ public class UsuarioRepositorio : IUsuarioRepositorio
 
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
-        using var hmac = new System.Security.Cryptography.HMACSHA512();
+        using var hmac = new HMACSHA512();
         passwordSalt = hmac.Key;
-        passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+        passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
     }
 
     private bool VerificarPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
     {
-        using var hmac = new System.Security.Cryptography.HMACSHA512(passwordSalt);
-        var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(computedHash, passwordHash);
+        using var hmac = new HMACSHA512(passwordSalt);
+        var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return CryptographicOperations.FixedTimeEquals(computedHash, passwordHash);
+    }
+
+    private string CrearToken(Usuario usuario)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+            new Claim(ClaimTypes.Name, usuario.UserName)
+        };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(claims),
+            Expires = DateTime.UtcNow.AddDays(1),
+            SigningCredentials = creds
+        };
+
+        var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+
+        return tokenHandler.WriteToken(token);
     }
 }
