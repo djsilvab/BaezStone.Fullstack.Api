@@ -22,10 +22,10 @@ public class UsuariosController : ControllerBase
     [HttpPost("Login")]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<ResponseDto>> Login([FromBody] UsuarioDto userDto)
+    public async Task<ActionResult<ResponseDto>> Login([FromBody] UsuarioDto userDto, CancellationToken cancellationToken)
     {
 
-        var login = await _userRepo.Login(userDto.UserName, userDto.Password);
+        var login = await _userRepo.Login(userDto.UserName, userDto.Password, cancellationToken);
 
         if (login is null)
         {
@@ -44,9 +44,10 @@ public class UsuariosController : ControllerBase
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<ResponseDto>> Register([FromBody] UsuarioDto usuarioDto)
+    public async Task<ActionResult<ResponseDto>> Register([FromBody] UsuarioDto usuarioDto, CancellationToken cancellationToken)
     {
-        var registro = await _userRepo.Register(new Usuario { UserName = usuarioDto.UserName }, usuarioDto.Password);
+        var usuario = new Usuario { UserName = usuarioDto.UserName };
+        var registro = await _userRepo.Register(usuario, usuarioDto.Password, cancellationToken);
 
         if (registro is null)
         {
@@ -58,16 +59,16 @@ public class UsuariosController : ControllerBase
         _response.DisplayMessage = "Usuario registrado con éxito";
         _response.Result = registro;
 
-        return CreatedAtAction(nameof(GetUsuario), new { id = registro.Id }, _response);
+        return CreatedAtAction(nameof(GetUsuario), new { id = usuario.Id }, _response);
     }
 
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
     [Authorize]
-    public async Task<ActionResult<ResponseDto>> GetUsuario(int id)
+    public async Task<ActionResult<ResponseDto>> GetUsuario(int id, CancellationToken cancellationToken)
     {
-        var usuario = await _userRepo.GetUsuarioById(id);
+        var usuario = await _userRepo.GetUsuarioById(id, cancellationToken);
 
         if (usuario is null)
         {

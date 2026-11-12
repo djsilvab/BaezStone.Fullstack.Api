@@ -5,8 +5,8 @@ namespace BaezStone.Fullstack.Api.Repositorio;
 
 public interface IUsuarioRepositorio
 {
-    Task<UsuarioLoginReadDto?> Register(Usuario usuario, string password);
-    Task<UsuarioLoginReadDto?> Login(string userName, string password);
-    Task<bool> Existe(string userName);
-    Task<UsuarioReadDto?> GetUsuarioById(int id);
+    Task<UsuarioTokenReadDto?> Register(Usuario usuario, string password, CancellationToken cancellationToken);
+    Task<UsuarioTokenReadDto?> Login(string userName, string password, CancellationToken cancellationToken);
+    Task<bool> Existe(string userName, CancellationToken cancellationToken = default);
+    Task<UsuarioReadDto?> GetUsuarioById(int id, CancellationToken cancellationToken);
 }

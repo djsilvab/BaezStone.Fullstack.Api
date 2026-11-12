@@ -7,12 +7,18 @@ import { ListaPeliculasComponent } from './peliculas/lista-peliculas/lista-pelic
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MaterialModule } from './material/material.module';
 import { MenuComponent } from './menu/menu.component';
+import { ClientesComponent } from './clientes/clientes.component';
+import { HeaderComponent } from './header/header.component';
+import { FooterComponent } from './footer/footer.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     ListaPeliculasComponent,
-    MenuComponent
+    MenuComponent,
+    ClientesComponent,
+    HeaderComponent,
+    FooterComponent
   ],
   imports: [
     BrowserModule,

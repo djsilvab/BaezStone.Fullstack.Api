@@ -24,7 +24,7 @@ namespace BaezStone.Fullstack.Api.Profiles
 
             CreateMap<Usuario, UsuarioReadDto>();
 
-            CreateMap<Usuario, UsuarioLoginReadDto>();
+            CreateMap<Usuario, UsuarioTokenReadDto>();
         }
     }
 }

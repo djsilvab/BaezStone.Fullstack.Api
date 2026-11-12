@@ -3,6 +3,7 @@ using AutoMapper.QueryableExtensions;
 using BaezStone.Fullstack.Api.Data;
 using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -24,47 +25,57 @@ public class UsuarioRepositorio : IUsuarioRepositorio
         _configuration = configuration;
     }
 
-    public async Task<bool> Existe(string userName)
-        => await _db.Usuarios.AsNoTracking().AnyAsync(u => u.UserName == userName);
+    public async Task<bool> Existe(string userName, CancellationToken cancellationToken = default)
+        => await _db.Usuarios.AsNoTracking().AnyAsync(u => u.UserName == userName, cancellationToken);
 
-    public async Task<UsuarioReadDto?> GetUsuarioById(int id)
+    public async Task<UsuarioReadDto?> GetUsuarioById(int id, CancellationToken cancellationToken)
     {
         return await _db.Usuarios.AsNoTracking()
                         .Where(u => u.Id == id)
                         .ProjectTo<UsuarioReadDto>(_mapper.ConfigurationProvider)
-                        .FirstOrDefaultAsync();
+                        .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<UsuarioLoginReadDto?> Login(string userName, string password)
+    public async Task<UsuarioTokenReadDto?> Login(string userName, string password, CancellationToken cancellationToken)
     {
         var usuario = await _db.Usuarios.AsNoTracking()
-                                        .FirstOrDefaultAsync(u => u.UserName == userName);
+                                        .FirstOrDefaultAsync(u => u.UserName == userName, cancellationToken);
 
         if (usuario is null) return null;
 
         if (!VerificarPasswordHash(password, usuario.PasswordHash, usuario.PasswordSalt)) return null;
 
-        var login = _mapper.Map<UsuarioLoginReadDto>(usuario);
+        var login = _mapper.Map<UsuarioTokenReadDto>(usuario);
         login.Token = CrearToken(usuario);
         return login;
     }
 
-    public async Task<UsuarioLoginReadDto?> Register(Usuario usuario, string password)
+    public async Task<UsuarioTokenReadDto?> Register(Usuario usuario, string password, CancellationToken cancellationToken)
     {
-        if (await Existe(usuario.UserName)) return null;
+        if (await Existe(usuario.UserName, cancellationToken)) return null;
 
         CreatePasswordHash(password, out byte[] passwordHash, out byte[] passwordSalt);
 
         usuario.PasswordHash = passwordHash;
         usuario.PasswordSalt = passwordSalt;
 
-        await _db.Usuarios.AddAsync(usuario);
-        await _db.SaveChangesAsync();
+        try
+        {
+            _db.Usuarios.Add(usuario);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when(EsClaveDuplicada(ex))
+        {
+            return null;
+        }
 
-        var registro = _mapper.Map<UsuarioLoginReadDto>(usuario);
+        var registro = _mapper.Map<UsuarioTokenReadDto>(usuario);
         registro.Token = CrearToken(usuario);
         return registro;
     }
+
+    private static bool EsClaveDuplicada(DbUpdateException ex)
+        => ex.InnerException is SqlException { Number: 2627 or 2601 };
 
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
