@@ -1,6 +1,7 @@
 ﻿using BaezStone.Fullstack.Api.Dtos;
 using BaezStone.Fullstack.Api.Models;
 using BaezStone.Fullstack.Api.Repositorio;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BaezStone.Fullstack.Api.Controllers;
@@ -45,11 +46,9 @@ public class UsuariosController : ControllerBase
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ResponseDto>> Register([FromBody] UsuarioDto usuarioDto)
     {
-        var id = await _userRepo.Register(
-            new Usuario { UserName = usuarioDto.UserName },
-            usuarioDto.Password);
+        var registro = await _userRepo.Register(new Usuario { UserName = usuarioDto.UserName }, usuarioDto.Password);
 
-        if (id == -1)
+        if (registro is null)
         {
             _response.IsSuccess = false;
             _response.DisplayMessage = "El usuario ya existe";
@@ -57,14 +56,15 @@ public class UsuariosController : ControllerBase
         }
 
         _response.DisplayMessage = "Usuario registrado con éxito";
-        _response.Result = id;
+        _response.Result = registro;
 
-        return CreatedAtAction(nameof(GetUsuario), new { id = id }, _response);
+        return CreatedAtAction(nameof(GetUsuario), new { id = registro.Id }, _response);
     }
 
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
+    [Authorize]
     public async Task<ActionResult<ResponseDto>> GetUsuario(int id)
     {
         var usuario = await _userRepo.GetUsuarioById(id);

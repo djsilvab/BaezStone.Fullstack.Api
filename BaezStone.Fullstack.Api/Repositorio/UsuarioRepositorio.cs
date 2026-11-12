@@ -49,9 +49,9 @@ public class UsuarioRepositorio : IUsuarioRepositorio
         return login;
     }
 
-    public async Task<int> Register(Usuario usuario, string password)
+    public async Task<UsuarioLoginReadDto?> Register(Usuario usuario, string password)
     {
-        if (await Existe(usuario.UserName)) return -1;
+        if (await Existe(usuario.UserName)) return null;
 
         CreatePasswordHash(password, out byte[] passwordHash, out byte[] passwordSalt);
 
@@ -60,7 +60,10 @@ public class UsuarioRepositorio : IUsuarioRepositorio
 
         await _db.Usuarios.AddAsync(usuario);
         await _db.SaveChangesAsync();
-        return usuario.Id;
+
+        var registro = _mapper.Map<UsuarioLoginReadDto>(usuario);
+        registro.Token = CrearToken(usuario);
+        return registro;
     }
 
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
