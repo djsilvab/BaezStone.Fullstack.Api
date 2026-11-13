@@ -4,9 +4,9 @@
 |---|---|
 | Etapa | 3 — Cliente web |
 | Alcance | `BaezStone.Fullstack.WebUI`: `AppWebWithAng11` (existente) y `AppWebWithAng13` (base nueva), estado actual e integración pendiente con la API |
-| Estado | Solo estructura; **ningún** frontend consume la API todavía (CORS ya resuelto en la API) |
-| Fecha del documento | 2026-11-11 |
-| Commits | `44055e4` (Ang11), `c1a412e` (Ang13 + `Añade JWT y base Angular 13`), `9739286` (CORS en la API) |
+| Estado | Solo estructura; **ningún** frontend consume la API todavía (CORS ya resuelto en la API). Ang11 suma los scaffolds `clientes`/`header`/`footer` en `145a1aa` |
+| Fecha del documento | 2026-11-13 |
+| Commits | `44055e4` (Ang11), `c1a412e` (Ang13 + `Añade JWT y base Angular 13`), `9739286` (CORS en la API), `145a1aa` (componentes `clientes`/`header`/`footer`) |
 
 ## 1. Alcance
 
@@ -14,13 +14,13 @@ Documentar la convivencia de dos aplicaciones Angular en el repo, su toolchain f
 
 ## 2. Estado actual
 
-### `AppWebWithAng11` (app existente, 41 archivos versionados)
+### `AppWebWithAng11` (app existente, 53 archivos versionados)
 - Angular **11.2.19**, TypeScript **4.1.6**, Angular Material **11.2.13** + CDK, **TSLint**, pnpm.
 - Node **14.21.3** fijado en `.npmrc` (`use-node-version`) y `package.json` (`engines`).
-- `AppModule` declara `AppComponent`, `ListaPeliculasComponent` y `MenuComponent`; importa `BrowserAnimationsModule` y `MaterialModule`.
+- `AppModule` declara `AppComponent`, `ListaPeliculasComponent`, `MenuComponent`, `ClientesComponent`, `HeaderComponent` y `FooterComponent`; importa `BrowserAnimationsModule` y `MaterialModule`. Los tres nuevos son scaffolds (`works!`) sin uso en plantillas ni rutas.
 - `app-routing.module.ts` con `routes` **vacío**; nada está enrutado.
 - `ListaPeliculasComponent` sirve **datos mock hardcodeados** con `setTimeout(..., 2500)`; no hay `HttpClientModule`.
-- Línea base roja: `pnpm run lint` = 5 errores (espacios finales, comillas dobles, falta `;`); `ng test` falla 2 de 3 specs (specs del scaffold desactualizadas, `NG0304` por falta de declaración).
+- Línea base roja: `pnpm run lint` = 5 errores (espacios finales, comillas dobles, falta `;`); `ng test` con specs del scaffold desactualizadas (`title`, `NG0304`). Desde `145a1aa` hay **4 specs** (`app`, `clientes`, `header`, `footer`); los tres nuevos solo comprueban la creación del componente y no se han ejecutado.
 
 ### `AppWebWithAng13` (base nueva, 31 archivos versionados)
 - Angular **13.1.x**, Angular CLI **13.1.1**, TypeScript **4.5.2**, RxJS **7.4**, Zone.js **0.11.4**, Karma 6.3.
@@ -56,7 +56,7 @@ Ninguno de los dos proyectos está conectado. Para el primer consumo real (`POST
 2. **`HttpClientModule`** en el `AppModule` del frontend elegido — ausente en ambos.
 3. **URL base**: añadir `apiUrl` en `src/environments/environment.ts` y `environment.prod.ts` (hoy solo `{ production }`) y mantenerlos sincronizados vía `fileReplacements` de `angular.json`.
 4. **HTTPS**: `UseHttpsRedirection()` está activo en la API. Llamar a `https://localhost:7276` (con certificado de desarrollo de confianza) o usar `proxy.conf.json` asumiendo que la redirección puede romper el proxy.
-5. **Flujo de login**: servicio de autenticación que haga `POST /api/usuarios/Login`, guarde el `token`, un `HttpInterceptor` que añada `Authorization: Bearer`, y un `CanActivate` para las rutas protegidas.
+5. **Flujo de login**: servicio de autenticación que haga `POST /api/usuarios/Login`, guarde el `token`, un `HttpInterceptor` que añada `Authorization: Bearer`, y un `CanActivate` para las rutas protegidas. La respuesta del login es `{ userName, token }` (sin `id`): el `Id` solo está en el `Location` del registro y en el claim `nameid`.
 6. **Manejo del 401 uniforme**: mostrar el mismo mensaje para credenciales inválidas (el backend no distingue usuario inexistente de contraseña mala).
 7. **Adaptador de `ResponseDto`**: todos los endpoints devuelven `{ isSuccess, result, displayMessage, errorMessages }`; el frontend debe desenvolver `result` y mostrar `displayMessage`/`errorMessages`.
 
@@ -65,6 +65,7 @@ Ninguno de los dos proyectos está conectado. Para el primer consumo real (`POST
 | Prioridad | Ítem |
 |---|---|
 | Resuelto | CORS en la API (política `"Angular"`, verificada con preflight y origen denegado) |
+| Resuelto | Componentes base `clientes`/`header`/`footer` declarados en Ang11 (`145a1aa`), aún sin uso ni rutas |
 | Crítica | Decidir el frontend vivo (Ang11 vs. Ang13) antes de escribir código de integración |
 | Alta | `HttpClientModule`, `environment.apiUrl`, servicio de auth + interceptor + guard |
 | Alta | Sustituir los mocks de `ListaPeliculasComponent` (Ang11) por datos reales, o portar la vista a Ang13 |

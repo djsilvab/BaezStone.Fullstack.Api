@@ -22,6 +22,7 @@ public class UsuariosController : ControllerBase
     [HttpPost("Login")]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ResponseDto>> Login([FromBody] UsuarioDto userDto, CancellationToken cancellationToken)
     {
 
@@ -53,6 +54,7 @@ public class UsuariosController : ControllerBase
         {
             _response.IsSuccess = false;
             _response.DisplayMessage = "El usuario ya existe";
+            _response.ErrorMessages = new List<string> { "El usuario ya existe" };
             return Conflict(_response);
         }
 
@@ -65,6 +67,7 @@ public class UsuariosController : ControllerBase
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
     [Authorize]
     public async Task<ActionResult<ResponseDto>> GetUsuario(int id, CancellationToken cancellationToken)
     {
