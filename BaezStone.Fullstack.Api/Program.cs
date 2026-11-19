@@ -6,11 +6,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Swashbuckle.AspNetCore.Filters;
 using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.Filters;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var jwtKey = builder.Configuration["AppSettings:Token"];
+if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 64)
+{
+    throw new InvalidOperationException(
+        "AppSettings:Token no está configurado (User Secrets en Development o variable de entorno AppSettings__Token).");
+}
 
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -29,15 +36,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidateIssuer = true,
             ValidateAudience = true,
-            ValidateLifetime = true,            
-            ValidIssuer = builder.Configuration.GetSection("AppSettings:Issuer").Value 
+            ValidateLifetime = true,
+            ValidIssuer = builder.Configuration.GetSection("AppSettings:Issuer").Value
                             ?? throw new InvalidOperationException("AppSettings:Issuer no está configurado."),
             ValidAudience = builder.Configuration.GetSection("AppSettings:Audience").Value
                             ?? throw new InvalidOperationException("AppSettings:Audience no está configurado."),
             ClockSkew = TimeSpan.FromMinutes(
                             int.TryParse(builder.Configuration.GetSection("AppSettings:ClockSkewMinutes").Value, out int clockSkewMinutes) ? clockSkewMinutes : 5),
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration.GetSection("AppSettings:Token").Value ?? throw new InvalidOperationException("JWT key no está configurado.")))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
@@ -60,8 +66,8 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddCors(options => 
-    options.AddPolicy("Angular", policy => 
+builder.Services.AddCors(options =>
+    options.AddPolicy("Angular", policy =>
         policy.WithOrigins("https://localhost:4200", "http://localhost:4200")
               .AllowAnyMethod()
               .AllowAnyHeader()));
@@ -76,7 +82,7 @@ builder.Services.AddControllers()
                                 .SelectMany(x => x.Value!.Errors)
                                 .Select(x => x.ErrorMessage)
                                 .ToList();
-        
+
             return new BadRequestObjectResult(new ResponseDto
             {
                 IsSuccess = false,

@@ -64,7 +64,7 @@ public class UsuarioRepositorio : IUsuarioRepositorio
             _db.Usuarios.Add(usuario);
             await _db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when(EsClaveDuplicada(ex))
+        catch (DbUpdateException ex) when (EsClaveDuplicada(ex))
         {
             return null;
         }
@@ -100,7 +100,7 @@ public class UsuarioRepositorio : IUsuarioRepositorio
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value
-            ?? throw new InvalidOperationException("AppSettings:Token is not configured.")));
+            ?? throw new InvalidOperationException("AppSettings:Token no está configurado (User Secrets en Development o variable de entorno).")));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
         var tokenDescriptor = new SecurityTokenDescriptor
         {
